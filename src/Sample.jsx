@@ -1,8 +1,8 @@
 function Sample(){
     return(
     <>
-    <h1>Mark Angel</h1>
-    <h2>Caturza</h2>
+    <h1>TMC_Care</h1>
+    <h2>Administrator</h2>
     </>
     )
 }
