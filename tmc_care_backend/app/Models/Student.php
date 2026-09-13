@@ -10,7 +10,7 @@ class Student extends Model
     use HasApiTokens;
 
     protected $fillable = [
-        'student_no', 'name', 'email', 'password', 'program', 'year', 'status', 'date_joined', 'phone',
+        'student_no', 'username', 'name', 'email', 'password', 'program', 'year', 'status', 'date_joined', 'phone', 'address',
     ];
 
     protected $hidden = [
@@ -21,6 +21,12 @@ class Student extends Model
         'date_joined' => 'date',
         'password' => 'hashed',
     ];
+
+
+    public function getRouteKeyName(): string
+    {
+        return 'student_no';
+    }
 
     public function incidentReports()
     {

@@ -7,7 +7,6 @@ use App\Models\AuditLog;
 use App\Models\Student;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
-use Illuminate\Support\Str;
 
 class StudentController extends Controller
 {
@@ -28,26 +27,29 @@ class StudentController extends Controller
         return response()->json($q->orderByDesc('id')->get()->map(fn ($s) => $this->format($s)));
     }
 
-        public function store(Request $request)
+            public function store(Request $request)
     {
         $data = $request->validate([
+            'student_no' => ['required', 'string', 'regex:/^\d{2}-\d{6}$/', 'unique:students,student_no'],
             'name' => ['required', 'string', 'max:255'],
             'email' => ['required', 'email', 'unique:students,email'],
+            'address' => ['nullable', 'string'],
             'program' => ['nullable', 'string'],
             'year' => ['nullable', 'string'],
             'phone' => ['nullable', 'string'],
-            'password' => ['nullable', 'string', 'min:6'],
+            'username' => ['required', 'string', 'max:255', 'unique:students,username'],
+            'password' => ['required', 'string', 'min:6'],
+        ], [
+            'student_no.regex' => 'School ID must be in the format 00-000000.',
         ]);
 
-        $studentNo = (2024) . '-' . (10000 + Student::count());
-
-        $plainPassword = $data['password'] ?? Str::password(10, symbols: false);
-
         $student = Student::create([
-            'student_no' => $studentNo,
+            'student_no' => $data['student_no'],
+            'username' => $data['username'],
             'name' => $data['name'],
             'email' => $data['email'],
-            'password' => Hash::make($plainPassword),
+            'address' => $data['address'] ?? null,
+            'password' => Hash::make($data['password']),
             'program' => $data['program'] ?? null,
             'year' => $data['year'] ?? null,
             'status' => 'Active',
@@ -57,10 +59,7 @@ class StudentController extends Controller
 
         AuditLog::record($request->user()?->name ?? 'System', "Added new student {$student->name}", $student->student_no);
 
-        $response = $this->format($student);
-        $response['generatedPassword'] = $plainPassword;
-
-        return response()->json($response, 201);
+        return response()->json($this->format($student), 201);
     }
 
     public function show(Student $student)
@@ -96,29 +95,27 @@ class StudentController extends Controller
         return response()->json(['message' => 'Deleted']);
     }
 
-        public function resetPassword(Request $request, Student $student)
+    public function resetPassword(Request $request, Student $student)
     {
         $data = $request->validate([
-            'password' => ['nullable', 'string', 'min:6'],
+            'password' => ['required', 'string', 'min:6'],
         ]);
 
-        $plainPassword = $data['password'] ?? Str::password(10, symbols: false);
-        $student->update(['password' => Hash::make($plainPassword)]);
+        $student->update(['password' => Hash::make($data['password'])]);
 
         AuditLog::record($request->user()?->name ?? 'System', "Reset app password for {$student->name}", $student->student_no);
 
-        return response()->json([
-            'message' => 'Password reset',
-            'generatedPassword' => $plainPassword,
-        ]);
+        return response()->json(['message' => 'Password reset']);
     }
 
-    private function format(Student $s): array
+        private function format(Student $s): array
     {
         return [
             'id' => $s->student_no,
+            'username' => $s->username,
             'name' => $s->name,
             'email' => $s->email,
+            'address' => $s->address,
             'program' => $s->program,
             'year' => $s->year,
             'status' => $s->status,

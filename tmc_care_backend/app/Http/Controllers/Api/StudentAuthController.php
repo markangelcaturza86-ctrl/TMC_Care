@@ -11,24 +11,24 @@ use Illuminate\Validation\ValidationException;
 
 class StudentAuthController extends Controller
 {
-    public function login(Request $request)
+        public function login(Request $request)
     {
         $data = $request->validate([
-            'student_no' => ['required', 'string'],
+            'username' => ['required', 'string'],
             'password' => ['required', 'string'],
         ]);
 
-        $student = Student::where('student_no', $data['student_no'])->first();
+        $student = Student::where('username', $data['username'])->first();
 
         if (! $student || ! $student->password || ! Hash::check($data['password'], $student->password)) {
             throw ValidationException::withMessages([
-                'student_no' => ['These credentials do not match our records.'],
+                'username' => ['These credentials do not match our records.'],
             ]);
         }
 
         if ($student->status !== 'Active') {
             throw ValidationException::withMessages([
-                'student_no' => ['This account is inactive. Please contact the school.'],
+                'username' => ['This account is inactive. Please contact the school.'],
             ]);
         }
 
@@ -62,10 +62,11 @@ class StudentAuthController extends Controller
         }
     }
 
-    private function format(Student $s): array
+        private function format(Student $s): array
     {
         return [
             'id' => $s->student_no,
+            'username' => $s->username,
             'name' => $s->name,
             'email' => $s->email,
             'program' => $s->program,

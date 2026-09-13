@@ -10,6 +10,8 @@ use App\Http\Controllers\Api\DocumentController;
 use App\Http\Controllers\Api\FinancialRequestController;
 use App\Http\Controllers\Api\IncidentReportController;
 use App\Http\Controllers\Api\MessageController;
+use App\Http\Controllers\Api\PersonnelAuthController;
+use App\Http\Controllers\Api\PersonnelController;
 use App\Http\Controllers\Api\RoleController;
 use App\Http\Controllers\Api\StudentController;
 use App\Http\Controllers\Api\StudentAuthController;
@@ -24,6 +26,14 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/student/me', [StudentAuthController::class, 'me']);
 });
 
+
+// Staff (teaching / non-teaching) login, used by the Flutter app.
+Route::post('/personnel/login', [PersonnelAuthController::class, 'login']);
+Route::middleware('auth:sanctum')->group(function () {
+    Route::post('/personnel/logout', [PersonnelAuthController::class, 'logout']);
+    Route::get('/personnel/me', [PersonnelAuthController::class, 'me']);
+});
+
 Route::middleware('auth:sanctum')->group(function () {
     Route::post('/logout', [AuthController::class, 'logout']);
     Route::get('/me', [AuthController::class, 'me']);
@@ -34,6 +44,9 @@ Route::middleware('auth:sanctum')->group(function () {
 
     Route::apiResource('students', StudentController::class);
     Route::put('/students/{student}/password', [StudentController::class, 'resetPassword']);
+
+    Route::apiResource('personnel', PersonnelController::class);
+    Route::put('/personnel/{personnel}/password', [PersonnelController::class, 'resetPassword']);
     Route::apiResource('incident-reports', IncidentReportController::class);
     Route::apiResource('financial-requests', FinancialRequestController::class);
 

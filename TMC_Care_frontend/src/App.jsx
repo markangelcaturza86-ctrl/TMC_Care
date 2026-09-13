@@ -8,6 +8,7 @@ import Dashboard from './pages/Dashboard';
 import ReportsIncidents from './pages/ReportsIncidents';
 import ReportsFinancial from './pages/ReportsFinancial';
 import Users from './pages/Users';
+import Personnel from './pages/Personnel';
 import RequestsFinancial from './pages/RequestsFinancial';
 import RequestsIncidents from './pages/RequestsIncidents';
 import VerificationsPending from './pages/VerificationsPending';
@@ -26,6 +27,7 @@ const PAGES = {
   '/reports/incidents': ReportsIncidents,
   '/reports/financial': ReportsFinancial,
   '/users': Users,
+  '/personnel': Personnel,
   '/requests/financial': RequestsFinancial,
   '/requests/incidents': RequestsIncidents,
   '/verifications/pending': VerificationsPending,

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { UserPlus, Eye, Mail, KeyRound, Copy } from 'lucide-react';
+import { UserPlus, Eye, KeyRound, Copy } from 'lucide-react';
 import PageHeader from '../components/PageHeader';
 import DataTable from '../components/DataTable';
 import StatusBadge from '../components/StatusBadge';
@@ -7,17 +7,19 @@ import Modal from '../components/Modal';
 import { api } from '../api/client';
 import { useToast } from '../components/Toast';
 
-const PROGRAMS = ['BS Information Technology', 'BS Criminology', 'BS Elem. Education', 'BS Accountancy', 'BS Hospitality Mgmt', 'BS Nursing', 'BS Civil Engineering', 'BS Psychology'];
-const YEAR_LEVELS = ['1st Year', '2nd Year', '3rd Year', '4th Year'];
-const SCHOOL_ID_PATTERN = /^\d{2}-\d{6}$/;
+const STAFF_TYPES = ['Teaching', 'Non-teaching'];
+const ID_PATTERN = /^\d{2}-\d{6}$/;
 
-const emptyForm = { studentNo: '', name: '', email: '', address: '', program: PROGRAMS[0], year: YEAR_LEVELS[0], phone: '', username: '', password: '' };
+const emptyForm = {
+  idNumber: '', name: '', address: '', email: '', phone: '',
+  staffType: STAFF_TYPES[0], department: '', username: '', password: '',
+};
 
-export default function Users() {
-  const [students, setStudents] = useState([]);
+export default function Personnel() {
+  const [personnel, setPersonnel] = useState([]);
+  const [departments, setDepartments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState(null);
-  const [selectedDetail, setSelectedDetail] = useState(null);
   const [creating, setCreating] = useState(false);
   const [form, setForm] = useState(emptyForm);
   const [credentials, setCredentials] = useState(null);
@@ -26,76 +28,71 @@ export default function Users() {
   const showToast = useToast();
 
   useEffect(() => {
-    api.get('/students')
-      .then(setStudents)
-      .catch(() => showToast('Failed to load students.', 'error'))
+    Promise.all([api.get('/personnel'), api.get('/departments')])
+      .then(([personnelData, deptsData]) => {
+        setPersonnel(personnelData);
+        setDepartments(deptsData);
+        setForm((f) => ({ ...f, department: deptsData[0]?.name ?? '' }));
+      })
+      .catch(() => showToast('Failed to load personnel.', 'error'))
       .finally(() => setLoading(false));
   }, []);
 
   const columns = [
     { key: 'name', header: 'Name' },
-    { key: 'id', header: 'School ID', render: (r) => <span className="mono">{r.id}</span> },
+    { key: 'id', header: 'ID Number', render: (r) => <span className="mono">{r.id}</span> },
+    { key: 'staffType', header: 'Type' },
+    { key: 'department', header: 'Department', render: (r) => r.department || '—' },
     { key: 'username', header: 'Username', render: (r) => <span className="mono">{r.username}</span> },
-    { key: 'program', header: 'Program' },
-    { key: 'year', header: 'Year Level' },
     { key: 'status', header: 'Status', render: (r) => <StatusBadge status={r.status} /> },
     {
       key: 'actions', header: '', render: (r) => (
         <div className="row-actions">
-          <button className="icon-btn" onClick={() => openProfile(r)} aria-label="View profile"><Eye size={17} /></button>
-          <button className="icon-btn" aria-label="Email student"><Mail size={17} /></button>
+          <button className="icon-btn" onClick={() => setSelected(r)} aria-label="View profile"><Eye size={17} /></button>
         </div>
       ),
     },
   ];
 
-  const openProfile = async (student) => {
-    setSelected(student);
-    setSelectedDetail(null);
-    try {
-      const detail = await api.get(`/students/${student.id}`);
-      setSelectedDetail(detail);
-    } catch (err) {
-      showToast(err.message, 'error');
-      setSelected(null);
-    }
-  };
-
   const submitCreate = async (e) => {
     e.preventDefault();
-    if (!form.studentNo.trim() || !form.name.trim() || !form.email.trim() || !form.username.trim() || !form.password.trim()) {
-      showToast('School ID, name, email, username, and password are all required.', 'error');
+    if (!form.idNumber.trim() || !form.name.trim() || !form.username.trim() || !form.password.trim()) {
+      showToast('ID Number, name, username, and password are all required.', 'error');
       return;
     }
-    if (!SCHOOL_ID_PATTERN.test(form.studentNo.trim())) {
-      showToast('School ID must be in the format 00-000000 (e.g. 24-123456).', 'error');
+    if (!ID_PATTERN.test(form.idNumber.trim())) {
+      showToast('ID Number must be in the format 00-000000 (e.g. 24-123456).', 'error');
+      return;
+    }
+    if (form.staffType === 'Teaching' && !form.department) {
+      showToast('Please select a department for teaching staff.', 'error');
       return;
     }
     try {
       const payload = {
-        student_no: form.studentNo.trim(),
+        id_number: form.idNumber.trim(),
         name: form.name,
-        email: form.email,
         address: form.address,
-        program: form.program,
-        year: form.year,
-        phone: form.phone,
+        email: form.email || null,
+        phone: form.phone || null,
+        staff_type: form.staffType,
+        department: form.staffType === 'Teaching' ? form.department : null,
         username: form.username,
         password: form.password,
       };
-      const created = await api.post('/students', payload);
-      setStudents((s) => [created, ...s]);
+      const created = await api.post('/personnel', payload);
+      setPersonnel((p) => [created, ...p]);
       showToast(`${created.name} added successfully.`, 'success');
-      setCredentials({ id: created.id, username: form.username, password: form.password });
-      setForm(emptyForm);
+      setCredentials({ username: form.username, password: form.password });
+      setForm({ ...emptyForm, department: departments[0]?.name ?? '' });
       setCreating(false);
     } catch (err) {
       showToast(err.message, 'error');
     }
   };
 
-  const openResetPassword = (student) => {
-    setResettingFor(student);
+  const openResetPassword = (p) => {
+    setResettingFor(p);
     setResetPasswordValue('');
   };
 
@@ -106,9 +103,9 @@ export default function Users() {
       return;
     }
     try {
-      await api.put(`/students/${resettingFor.id}/password`, { password: resetPasswordValue.trim() });
+      await api.put(`/personnel/${resettingFor.id}/password`, { password: resetPasswordValue.trim() });
       showToast('Password reset.', 'success');
-      setCredentials({ id: resettingFor.id, username: resettingFor.username, password: resetPasswordValue.trim() });
+      setCredentials({ username: resettingFor.username, password: resetPasswordValue.trim() });
       setResettingFor(null);
     } catch (err) {
       showToast(err.message, 'error');
@@ -127,26 +124,26 @@ export default function Users() {
   return (
     <div className="page-stack">
       <PageHeader
-        title="Users"
-        subtitle="All registered students with access to the TMC-Care portal."
-        actions={<button className="btn btn--primary" onClick={() => setCreating(true)}><UserPlus size={16} /> Add Student</button>}
+        title="Personnel"
+        subtitle="Teaching and non-teaching staff with access to the TMC-Care mobile app."
+        actions={<button className="btn btn--primary" onClick={() => setCreating(true)}><UserPlus size={16} /> Add Personnel</button>}
       />
 
       <div className="panel">
         <DataTable
           columns={columns}
-          rows={students}
-          searchKeys={['name', 'id', 'program', 'email', 'username']}
-          searchPlaceholder="Search by name, School ID, username, or program..."
+          rows={personnel}
+          searchKeys={['name', 'id', 'username', 'department']}
+          searchPlaceholder="Search by name, ID Number, or department..."
           filters={[
+            { key: 'staffType', label: 'Type', options: STAFF_TYPES },
             { key: 'status', label: 'Status', options: ['Active', 'Inactive'] },
-            { key: 'year', label: 'Year', options: YEAR_LEVELS },
           ]}
           pageSize={9}
         />
       </div>
 
-      <Modal open={!!selected} onClose={() => { setSelected(null); setSelectedDetail(null); }} title="Student Profile" width={620}>
+      <Modal open={!!selected} onClose={() => setSelected(null)} title="Personnel Profile" width={620}>
         {selected && (
           <>
             <div className="profile-head">
@@ -155,14 +152,14 @@ export default function Users() {
               </div>
               <div>
                 <p className="profile-name">{selected.name}</p>
-                <p className="profile-sub">{selected.program} · {selected.year}</p>
+                <p className="profile-sub">{selected.staffType}{selected.department ? ` · ${selected.department}` : ''}</p>
               </div>
               <StatusBadge status={selected.status} />
             </div>
             <div className="detail-grid" style={{ marginTop: 16 }}>
-              <div><span>School ID</span><b className="mono">{selected.id}</b></div>
+              <div><span>ID Number</span><b className="mono">{selected.id}</b></div>
               <div><span>Username</span><b className="mono">{selected.username}</b></div>
-              <div><span>Email</span><b>{selected.email}</b></div>
+              <div><span>Email</span><b>{selected.email || '—'}</b></div>
               <div><span>Phone</span><b>{selected.phone || '—'}</b></div>
               <div><span>Address</span><b>{selected.address || '—'}</b></div>
               <div><span>Date Joined</span><b>{selected.dateJoined}</b></div>
@@ -173,91 +170,64 @@ export default function Users() {
                 <KeyRound size={15} /> Reset App Password
               </button>
             </div>
-
-            {!selectedDetail ? (
-              <p style={{ marginTop: 16, color: '#6B7280' }}>Loading history…</p>
-            ) : (
-              <>
-                <div className="profile-section">
-                  <p className="profile-section-title">Incident Reports ({selectedDetail.incidentReports.length})</p>
-                  {selectedDetail.incidentReports.length === 0 ? (
-                    <p className="muted-text">No incident reports filed.</p>
-                  ) : (
-                    <ul className="mini-list">
-                      {selectedDetail.incidentReports.map((r) => (
-                        <li key={r.id}><span className="mono">{r.id}</span> {r.type} <StatusBadge status={r.status} /></li>
-                      ))}
-                    </ul>
-                  )}
-                </div>
-
-                <div className="profile-section">
-                  <p className="profile-section-title">Financial Requests ({selectedDetail.financialRequests.length})</p>
-                  {selectedDetail.financialRequests.length === 0 ? (
-                    <p className="muted-text">No financial requests filed.</p>
-                  ) : (
-                    <ul className="mini-list">
-                      {selectedDetail.financialRequests.map((r) => (
-                        <li key={r.id}><span className="mono">{r.id}</span> {r.type} <StatusBadge status={r.status} /></li>
-                      ))}
-                    </ul>
-                  )}
-                </div>
-              </>
-            )}
           </>
         )}
       </Modal>
 
-      <Modal open={creating} onClose={() => setCreating(false)} title="Add Student">
+      <Modal open={creating} onClose={() => setCreating(false)} title="Add Personnel">
         <form className="modal-form" onSubmit={submitCreate}>
-          <label className="field"><span>School ID Number</span>
+          <label className="field"><span>ID Number</span>
             <input
-              value={form.studentNo}
-              onChange={(e) => setForm((f) => ({ ...f, studentNo: e.target.value }))}
+              value={form.idNumber}
+              onChange={(e) => setForm((f) => ({ ...f, idNumber: e.target.value }))}
               placeholder="00-000000"
             />
           </label>
           <label className="field"><span>Full name</span>
-            <input value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} placeholder="e.g. Liza Torres" />
-          </label>
-          <label className="field"><span>Email</span>
-            <input type="email" value={form.email} onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))} placeholder="name@students.tmc.edu.ph" />
+            <input value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} placeholder="e.g. Juan Dela Cruz" />
           </label>
           <label className="field"><span>Address</span>
             <input value={form.address} onChange={(e) => setForm((f) => ({ ...f, address: e.target.value }))} placeholder="e.g. Barangay, City, Province" />
           </label>
           <div className="form-row-2">
-            <label className="field"><span>Program</span>
-              <select value={form.program} onChange={(e) => setForm((f) => ({ ...f, program: e.target.value }))}>
-                {PROGRAMS.map((p) => <option key={p}>{p}</option>)}
-              </select>
+            <label className="field"><span>Email (optional)</span>
+              <input type="email" value={form.email} onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))} placeholder="name@tmc.edu.ph" />
             </label>
-            <label className="field"><span>Year Level</span>
-              <select value={form.year} onChange={(e) => setForm((f) => ({ ...f, year: e.target.value }))}>
-                {YEAR_LEVELS.map((y) => <option key={y}>{y}</option>)}
-              </select>
+            <label className="field"><span>Phone (optional)</span>
+              <input value={form.phone} onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))} placeholder="09XXXXXXXXX" />
             </label>
           </div>
-          <label className="field"><span>Phone (optional)</span>
-            <input value={form.phone} onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))} placeholder="09XXXXXXXXX" />
-          </label>
+
+          <div className="form-row-2">
+            <label className="field"><span>Staff Type</span>
+              <select value={form.staffType} onChange={(e) => setForm((f) => ({ ...f, staffType: e.target.value }))}>
+                {STAFF_TYPES.map((t) => <option key={t}>{t}</option>)}
+              </select>
+            </label>
+            {form.staffType === 'Teaching' && (
+              <label className="field"><span>Department</span>
+                <select value={form.department} onChange={(e) => setForm((f) => ({ ...f, department: e.target.value }))}>
+                  {departments.map((d) => <option key={d.id}>{d.name}</option>)}
+                </select>
+              </label>
+            )}
+          </div>
 
           <div className="form-row-2">
             <label className="field"><span>Username</span>
-              <input value={form.username} onChange={(e) => setForm((f) => ({ ...f, username: e.target.value }))} placeholder="e.g. vhan.gurea" />
+              <input value={form.username} onChange={(e) => setForm((f) => ({ ...f, username: e.target.value }))} placeholder="e.g. j.delacruz" />
             </label>
             <label className="field"><span>Password</span>
               <input type="text" value={form.password} onChange={(e) => setForm((f) => ({ ...f, password: e.target.value }))} placeholder="min 6 characters" />
             </label>
           </div>
           <p className="muted-text" style={{ marginTop: -8 }}>
-            The student uses this username and password to log into the mobile app.
+            This staff member uses this username and password to log into the mobile app.
           </p>
 
           <div className="modal-form-actions">
             <button type="button" className="btn btn--outline" onClick={() => setCreating(false)}>Cancel</button>
-            <button type="submit" className="btn btn--primary">Add Student</button>
+            <button type="submit" className="btn btn--primary">Add Personnel</button>
           </div>
         </form>
       </Modal>
@@ -299,7 +269,7 @@ export default function Users() {
         {credentials && (
           <div>
             <p className="muted-text">
-              Give these to the student so they can log into the TMC-Care mobile app.
+              Give these to the staff member so they can log into the TMC-Care mobile app.
             </p>
             <div className="detail-grid" style={{ marginTop: 16 }}>
               <div><span>Username</span><b className="mono">{credentials.username}</b></div>

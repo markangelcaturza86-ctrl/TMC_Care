@@ -11,21 +11,15 @@ export const navSections = [
       { path: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
     ],
   },
-  {
-    label: 'Reports',
-    icon: TriangleAlert,
-    items: [
-      { path: '/reports/incidents', label: 'Incident Reports', icon: FileText },
-      { path: '/reports/financial', label: 'Financial Requests', icon: HandCoins },
-    ],
-  },
-  {
+   {
     label: 'Users',
     icon: Users,
     items: [
-      { path: '/users', label: 'All Users', icon: Users },
+      { path: '/users', label: 'Students', icon: Users },
+      { path: '/personnel', label: 'Personnel', icon: UserCog },
     ],
   },
+
   {
     label: 'Requests',
     icon: FolderKanban,
