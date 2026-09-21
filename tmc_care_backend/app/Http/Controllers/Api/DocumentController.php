@@ -29,7 +29,7 @@ class DocumentController extends Controller
     public function store(Request $request)
     {
         $data = $request->validate([
-            'file' => ['required', 'file', 'max:10240'],
+            'file' => ['required', 'file', 'max:10240', 'mimes:pdf,jpg,jpeg,png,doc,docx'],
             'owner' => ['nullable', 'string'],
             'linked_type' => ['required', 'in:incident_report,financial_request'],
             'linked_code' => ['required', 'string'],

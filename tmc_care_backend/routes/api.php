@@ -17,10 +17,11 @@ use App\Http\Controllers\Api\StudentController;
 use App\Http\Controllers\Api\StudentAuthController;
 use App\Http\Controllers\Api\VerificationController;
 use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\Api\MobileHomeController;
 
-Route::post('/login', [AuthController::class, 'login']);
+Route::post('/login', [AuthController::class, 'login'])->middleware('throttle:6,1');
 
-Route::post('/student/login', [StudentAuthController::class, 'login']);
+Route::post('/student/login', [StudentAuthController::class, 'login'])->middleware('throttle:6,1');
 Route::middleware('auth:sanctum')->group(function () {
     Route::post('/student/logout', [StudentAuthController::class, 'logout']);
     Route::get('/student/me', [StudentAuthController::class, 'me']);
@@ -28,13 +29,20 @@ Route::middleware('auth:sanctum')->group(function () {
 
 
 // Staff (teaching / non-teaching) login, used by the Flutter app.
-Route::post('/personnel/login', [PersonnelAuthController::class, 'login']);
+Route::post('/personnel/login', [PersonnelAuthController::class, 'login'])->middleware('throttle:6,1');
 Route::middleware('auth:sanctum')->group(function () {
     Route::post('/personnel/logout', [PersonnelAuthController::class, 'logout']);
     Route::get('/personnel/me', [PersonnelAuthController::class, 'me']);
 });
 
 Route::middleware('auth:sanctum')->group(function () {
+    Route::get('/my/summary', [MobileHomeController::class, 'summary']);
+    Route::get('/my/incident-reports', [MobileHomeController::class, 'incidentReports']);
+    Route::get('/my/financial-requests', [MobileHomeController::class, 'financialRequests']);
+    Route::get('/my/announcements', [MobileHomeController::class, 'announcements']);
+});
+
+Route::middleware(['auth:sanctum', 'admin'])->group(function () {
     Route::post('/logout', [AuthController::class, 'logout']);
     Route::get('/me', [AuthController::class, 'me']);
     Route::put('/me', [AuthController::class, 'updateProfile']);

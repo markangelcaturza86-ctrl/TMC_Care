@@ -12,13 +12,12 @@ export const navSections = [
     ],
   },
    {
-    label: 'Users',
-    icon: Users,
-    items: [
-      { path: '/users', label: 'Students', icon: Users },
-      { path: '/personnel', label: 'Personnel', icon: UserCog },
-    ],
-  },
+  label: 'Users',
+  icon: Users,
+  items: [
+    { path: '/users', label: 'Users', icon: Users },
+  ],
+},
 
   {
     label: 'Requests',
@@ -48,7 +47,6 @@ export const navSections = [
     label: 'System Management',
     icon: Settings2,
     items: [
-      { path: '/system/users', label: 'User Management', icon: UserCog },
       { path: '/system/roles', label: 'Roles & Permissions', icon: KeyRound },
       { path: '/system/departments', label: 'Departments', icon: Building2 },
       { path: '/system/audit-logs', label: 'Audit Logs', icon: ScrollText },

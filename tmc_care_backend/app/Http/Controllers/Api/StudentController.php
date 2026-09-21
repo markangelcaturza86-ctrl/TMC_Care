@@ -1,7 +1,7 @@
 <?php
 
 namespace App\Http\Controllers\Api;
-
+use Illuminate\Validation\Rule;
 use App\Http\Controllers\Controller;
 use App\Models\AuditLog;
 use App\Models\Student;
@@ -76,18 +76,34 @@ class StudentController extends Controller
     }
 
     public function update(Request $request, Student $student)
-    {
-        $data = $request->validate([
-            'name' => ['sometimes', 'string', 'max:255'],
-            'email' => ['sometimes', 'email'],
-            'program' => ['sometimes', 'string'],
-            'year' => ['sometimes', 'string'],
-            'status' => ['sometimes', 'in:Active,Inactive'],
-            'phone' => ['sometimes', 'string'],
-        ]);
-        $student->update($data);
-        return response()->json($this->format($student));
+{
+    $data = $request->validate([
+        'student_no' => ['sometimes', 'string', 'regex:/^\d{2}-\d{6}$/', Rule::unique('students', 'student_no')->ignore($student->id)],
+        'username' => ['sometimes', 'string', 'max:255', Rule::unique('students', 'username')->ignore($student->id)],
+        'name' => ['sometimes', 'string', 'max:255'],
+        'email' => ['sometimes', 'email', Rule::unique('students', 'email')->ignore($student->id)],
+        'address' => ['sometimes', 'nullable', 'string'],
+        'program' => ['sometimes', 'nullable', 'string'],
+        'year' => ['sometimes', 'nullable', 'string'],
+        'phone' => ['sometimes', 'nullable', 'string'],
+        'status' => ['sometimes', 'in:Active,Inactive'],
+        'password' => ['sometimes', 'nullable', 'string', 'min:6'],
+    ], [
+        'student_no.regex' => 'School ID must be in the format 00-000000.',
+    ]);
+
+    if (empty($data['password'])) {
+        unset($data['password']);
+    } else {
+        $data['password'] = Hash::make($data['password']);
     }
+
+    $student->update($data);
+
+    AuditLog::record($request->user()?->name ?? 'System', "Updated student {$student->name}", $student->student_no);
+
+    return response()->json($this->format($student));
+}
 
     public function destroy(Student $student)
     {

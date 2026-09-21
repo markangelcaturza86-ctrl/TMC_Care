@@ -7,8 +7,6 @@ import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import ReportsIncidents from './pages/ReportsIncidents';
 import ReportsFinancial from './pages/ReportsFinancial';
-import Users from './pages/Users';
-import Personnel from './pages/Personnel';
 import RequestsFinancial from './pages/RequestsFinancial';
 import RequestsIncidents from './pages/RequestsIncidents';
 import VerificationsPending from './pages/VerificationsPending';
@@ -26,15 +24,13 @@ const PAGES = {
   '/dashboard': Dashboard,
   '/reports/incidents': ReportsIncidents,
   '/reports/financial': ReportsFinancial,
-  '/users': Users,
-  '/personnel': Personnel,
+  '/users': SystemUserManagement, 
   '/requests/financial': RequestsFinancial,
   '/requests/incidents': RequestsIncidents,
   '/verifications/pending': VerificationsPending,
   '/verifications/documents': VerificationsDocuments,
   '/communications/announcements': CommunicationsAnnouncements,
   '/communications/messages': CommunicationsMessages,
-  '/system/users': SystemUserManagement,
   '/system/roles': SystemRoles,
   '/system/departments': SystemDepartments,
   '/system/audit-logs': SystemAuditLogs,

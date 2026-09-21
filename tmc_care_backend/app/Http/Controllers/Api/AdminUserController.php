@@ -31,7 +31,7 @@ class AdminUserController extends Controller
             'email' => ['required', 'email', 'unique:users,email'],
             'role' => ['required', 'string'],
             'department' => ['nullable', 'string'],
-            'password' => ['nullable', 'string', 'min:6'],
+            'password' => ['required', 'string', 'min:6'],
         ]);
 
         $role = Role::firstOrCreate(['name' => $data['role']]);
@@ -40,7 +40,7 @@ class AdminUserController extends Controller
         $user = User::create([
             'name' => $data['name'],
             'email' => $data['email'],
-            'password' => Hash::make($data['password'] ?? 'password'),
+            'password' => Hash::make($data['password']),
             'role_id' => $role->id,
             'department_id' => $department?->id,
             'status' => 'Active',
@@ -53,28 +53,37 @@ class AdminUserController extends Controller
     }
 
     public function update(Request $request, User $admin_user)
-    {
-        $data = $request->validate([
-            'name' => ['sometimes', 'string', 'max:255'],
-            'email' => ['sometimes', 'email'],
-            'role' => ['sometimes', 'string'],
-            'department' => ['sometimes', 'string'],
-            'status' => ['sometimes', 'in:Active,Inactive'],
-        ]);
+{
+    $data = $request->validate([
+        'name' => ['sometimes', 'string', 'max:255'],
+        'email' => ['sometimes', 'email', 'unique:users,email,' . $admin_user->id],
+        'role' => ['sometimes', 'string'],
+        'department' => ['sometimes', 'string'],
+        'status' => ['sometimes', 'in:Active,Inactive'],
+        'password' => ['sometimes', 'nullable', 'string', 'min:6'],
+    ]);
 
-        if (isset($data['role'])) {
-            $data['role_id'] = Role::firstOrCreate(['name' => $data['role']])->id;
-            unset($data['role']);
-        }
-        if (isset($data['department'])) {
-            $data['department_id'] = Department::firstOrCreate(['name' => $data['department']])->id;
-            unset($data['department']);
-        }
-
-        $admin_user->update($data);
-
-        return response()->json($this->format($admin_user->load(['role', 'department'])));
+    if (isset($data['role'])) {
+        $data['role_id'] = Role::firstOrCreate(['name' => $data['role']])->id;
+        unset($data['role']);
     }
+    if (isset($data['department'])) {
+        $data['department_id'] = Department::firstOrCreate(['name' => $data['department']])->id;
+        unset($data['department']);
+    }
+
+    if (empty($data['password'])) {
+        unset($data['password']);
+    } else {
+        $data['password'] = Hash::make($data['password']);
+    }
+
+    $admin_user->update($data);
+
+    AuditLog::record($request->user()?->name ?? 'System', "Updated admin account for {$admin_user->name}", 'ADM-' . str_pad((string) $admin_user->id, 3, '0', STR_PAD_LEFT));
+
+    return response()->json($this->format($admin_user->load(['role', 'department'])));
+}
 
     public function destroy(Request $request, User $admin_user)
     {

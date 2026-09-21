@@ -58,28 +58,39 @@ class PersonnelController extends Controller
     }
 
     public function update(Request $request, Personnel $personnel)
-    {
-        $data = $request->validate([
-            'name' => ['sometimes', 'string', 'max:255'],
-            'address' => ['sometimes', 'nullable', 'string'],
-            'email' => ['sometimes', 'nullable', 'email'],
-            'phone' => ['sometimes', 'nullable', 'string'],
-            'staff_type' => ['sometimes', Rule::in(['Teaching', 'Non-teaching'])],
-            'department' => ['sometimes', 'nullable', 'string'],
-            'status' => ['sometimes', Rule::in(['Active', 'Inactive'])],
-        ]);
+{
+    $data = $request->validate([
+        'id_number' => ['sometimes', 'string', 'regex:/^\d{2}-\d{6}$/', Rule::unique('personnel', 'id_number')->ignore($personnel->id)],
+        'username' => ['sometimes', 'string', 'max:255', Rule::unique('personnel', 'username')->ignore($personnel->id)],
+        'name' => ['sometimes', 'string', 'max:255'],
+        'address' => ['sometimes', 'nullable', 'string'],
+        'email' => ['sometimes', 'nullable', 'email'],
+        'phone' => ['sometimes', 'nullable', 'string'],
+        'staff_type' => ['sometimes', Rule::in(['Teaching', 'Non-teaching'])],
+        'department' => ['sometimes', 'nullable', 'string'],
+        'status' => ['sometimes', Rule::in(['Active', 'Inactive'])],
+        'password' => ['sometimes', 'nullable', 'string', 'min:6'],
+    ], [
+        'id_number.regex' => 'ID Number must be in the format 00-000000.',
+    ]);
 
-        $type = $data['staff_type'] ?? $personnel->staff_type;
-        if ($type === 'Non-teaching') {
-            $data['department'] = null;
-        }
-
-        $personnel->update($data);
-
-        AuditLog::record($request->user()?->name ?? 'System', "Updated personnel {$personnel->name}", $personnel->id_number);
-
-        return response()->json($this->format($personnel));
+    $type = $data['staff_type'] ?? $personnel->staff_type;
+    if ($type === 'Non-teaching') {
+        $data['department'] = null;
     }
+
+    if (empty($data['password'])) {
+        unset($data['password']);
+    } else {
+        $data['password'] = Hash::make($data['password']);
+    }
+
+    $personnel->update($data);
+
+    AuditLog::record($request->user()?->name ?? 'System', "Updated personnel {$personnel->name}", $personnel->id_number);
+
+    return response()->json($this->format($personnel));
+}
 
     public function destroy(Personnel $personnel)
     {
