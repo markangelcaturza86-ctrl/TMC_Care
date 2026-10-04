@@ -58,7 +58,7 @@ export default function ReportsFinancial() {
             searchPlaceholder="Search by ID, student, or assistance type..."
             filters={[
               { key: 'status', label: 'Status', options: ['Submitted', 'Under Verification', 'Additional Documents', 'Approved', 'Partially Approved', 'Declined', 'Assistance Released'] },
-              { key: 'type', label: 'Type', options: ['Hospital / Medical Bills', 'Medicine Expenses', 'Transportation', 'Food & Daily Needs', 'School-related Expenses', 'Other Expenses'] },
+              { key: 'type', label: 'Type', options: ['Hospital / Medical Bills', 'Medicine Expenses', 'Funeral Expenses', 'Transportation Expenses', 'Food and Daily Needs', 'School-related Expenses', 'Other Emergency Expenses'] },
             ]}
             pageSize={9}
           />
@@ -77,6 +77,10 @@ export default function ReportsFinancial() {
             <div><span>Date Submitted</span><b>{selected.dateSubmitted}</b></div>
             <div><span>Status</span><StatusBadge status={selected.status} /></div>
             <div className="detail-full"><span>Reason</span><p>{selected.reason || '—'}</p></div>
+            <div><span>Requester</span><b>{selected.requesterName ?? '—'}</b></div>
+            <div><span>Relationship</span><b>{selected.relationship ?? '—'}</b></div>
+            <div><span>Contact</span><b>{selected.contactInfo ?? '—'}</b></div>
+            <div><span>Amount Funded</span><b>{peso(selected.amountFunded)}</b></div>
             <div className="detail-full">
               <span>Attached Documents</span>
               <ul className="doc-list">

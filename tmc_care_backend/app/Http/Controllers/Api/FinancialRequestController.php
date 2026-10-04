@@ -101,6 +101,13 @@ class FinancialRequestController extends Controller
             'dateSubmitted' => $r->date_submitted?->format('Y-m-d'),
             'status' => $r->status,
             'reason' => $r->reason,
+            'requesterName' => $r->requester_name,
+            'relationship' => $r->relationship,
+            'department' => $r->department,
+            'yearLevel' => $r->year_level,
+            'blockSection' => $r->block_section,
+            'amountFunded' => (float) $r->amount_funded,
+            'contactInfo' => $r->contact_info,
             'documents' => Document::where('linked_type', 'financial_request')->where('linked_id', $r->id)->pluck('name'),
         ];
     }

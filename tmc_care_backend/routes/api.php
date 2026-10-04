@@ -18,7 +18,8 @@ use App\Http\Controllers\Api\StudentAuthController;
 use App\Http\Controllers\Api\VerificationController;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Api\MobileHomeController;
-
+use App\Http\Controllers\Api\MobileRequestController;
+use App\Http\Controllers\Api\MyRequestController;
 Route::post('/login', [AuthController::class, 'login'])->middleware('throttle:6,1');
 
 Route::post('/student/login', [StudentAuthController::class, 'login'])->middleware('throttle:6,1');
@@ -40,6 +41,8 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/my/incident-reports', [MobileHomeController::class, 'incidentReports']);
     Route::get('/my/financial-requests', [MobileHomeController::class, 'financialRequests']);
     Route::get('/my/announcements', [MobileHomeController::class, 'announcements']);
+    Route::post('/my/incident-reports', [MyRequestController::class, 'storeIncident']);       // ← add
+    Route::post('/my/financial-requests', [MyRequestController::class, 'storeFinancial']);    // ← add
 });
 
 Route::middleware(['auth:sanctum', 'admin'])->group(function () {

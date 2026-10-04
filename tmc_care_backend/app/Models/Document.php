@@ -14,4 +14,10 @@ class Document extends Model
     protected $casts = [
         'uploaded_at' => 'datetime',
     ];
+
+    // The admin panel refers to documents by their code (e.g. DOC-0007).
+    public function getRouteKeyName(): string
+    {
+        return 'code';
+    }
 }

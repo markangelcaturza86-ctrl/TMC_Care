@@ -17,8 +17,8 @@ class DashboardController extends Controller
         $totalReports = IncidentReport::count() + FinancialRequest::count();
         $incidentCount = IncidentReport::count();
         $financialCount = FinancialRequest::count();
-        $pendingVerifications = IncidentReport::whereIn('status', ['Submitted', 'Under Review'])->count()
-            + FinancialRequest::whereIn('status', ['Submitted', 'Under Verification'])->count()
+         $pendingVerifications = IncidentReport::where('status', 'Submitted')->count()
+            + FinancialRequest::where('status', 'Submitted')->count();
             + Document::where('status', 'Pending')->count();
         $approvedRequests = FinancialRequest::whereIn('status', ['Approved', 'Partially Approved'])->count();
         $assistanceReleased = FinancialRequest::where('status', 'Assistance Released')->count();
@@ -48,11 +48,11 @@ class DashboardController extends Controller
             ->map(fn ($r) => ['type' => $r->type, 'count' => (int) $r->count]);
 
         $pendingList = collect()
-            ->merge(FinancialRequest::whereIn('status', ['Submitted', 'Under Verification'])->latest('date_submitted')->limit(5)->get()->map(fn ($r) => [
+            ->merge(FinancialRequest::where('status', 'Submitted')->latest('date_submitted')->limit(5)->get()->map(fn ($r) => [
                 'id' => $r->code, 'type' => 'Financial', 'requestedBy' => $r->student_name,
                 'dateSubmitted' => $r->date_submitted->format('M d, Y'), 'status' => 'Pending',
             ]))
-            ->merge(IncidentReport::whereIn('status', ['Submitted', 'Under Review'])->latest('date_submitted')->limit(5)->get()->map(fn ($r) => [
+            ->merge(IncidentReport::where('status', 'Submitted')->latest('date_submitted')->limit(5)->get()->map(fn ($r) => [
                 'id' => $r->code, 'type' => 'Incident', 'requestedBy' => $r->reported_by,
                 'dateSubmitted' => $r->date_submitted->format('M d, Y'), 'status' => 'Pending',
             ]))

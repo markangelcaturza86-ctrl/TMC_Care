@@ -117,12 +117,12 @@ export default function SystemUserManagement() {
         <div className="row-actions">
           <button className="icon-btn" onClick={() => openProfile(r)} aria-label="View profile"><Eye size={17} /></button>
           <button className="icon-btn" onClick={() => openEdit(r)} aria-label="Edit"><Pencil size={16} /></button>
-          {r.kind !== 'Admin' && (
+        
             <button className="icon-btn" onClick={() => openResetPassword(r)} aria-label="Reset app password"><KeyRound size={16} /></button>
-          )}
-          {r.kind === 'Admin' && (
+          
+          
             <button className="icon-btn icon-btn--danger" onClick={() => removeAdmin(r)} aria-label="Remove"><Trash2 size={16} /></button>
-          )}
+          
         </div>
       ),
     },

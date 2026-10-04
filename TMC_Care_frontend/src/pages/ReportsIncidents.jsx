@@ -71,6 +71,7 @@ export default function ReportsIncidents() {
             <div><span>Date Submitted</span><b>{selected.dateSubmitted}</b></div>
             <div><span>Assigned To</span><b>{selected.assignedTo}</b></div>
             <div className="detail-full"><span>Description</span><p>{selected.description || '—'}</p></div>
+            <div className="detail-full"><span>People Involved</span><p>{selected.peopleInvolved || '—'}</p></div>
           </div>
         )}
       </Modal>

@@ -36,7 +36,8 @@ export default function DataTable({
   }, [rows, query, searchKeys, activeFilters, filters]);
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
-  const pageRows = filtered.slice((page - 1) * pageSize, page * pageSize);
+  const currentPage = Math.min(page, totalPages); // rows can disappear (e.g. after verifying)
+  const pageRows = filtered.slice((currentPage - 1) * pageSize, currentPage * pageSize);
 
   const handleFilterChange = (key, value) => {
     setActiveFilters((f) => ({ ...f, [key]: value }));
@@ -111,16 +112,16 @@ export default function DataTable({
       {filtered.length > 0 && (
         <div className="table-pagination">
           <span>
-            Showing {(page - 1) * pageSize + 1}
+            Showing {(currentPage - 1) * pageSize + 1}
             {'\u2013'}
-            {Math.min(page * pageSize, filtered.length)} of {filtered.length}
+            {Math.min(currentPage * pageSize, filtered.length)} of {filtered.length}
           </span>
           <div className="pagination-controls">
-            <button disabled={page === 1} onClick={() => setPage((p) => Math.max(1, p - 1))}>
+            <button disabled={currentPage === 1} onClick={() => setPage(Math.max(1, currentPage - 1))}>
               <ChevronLeft size={16} />
             </button>
-            <span className="pagination-page">{page} / {totalPages}</span>
-            <button disabled={page === totalPages} onClick={() => setPage((p) => Math.min(totalPages, p + 1))}>
+            <span className="pagination-page">{currentPage} / {totalPages}</span>
+            <button disabled={currentPage === totalPages} onClick={() => setPage(Math.min(totalPages, currentPage + 1))}>
               <ChevronRight size={16} />
             </button>
           </div>
