@@ -61,6 +61,9 @@ class IncidentMessageController extends Controller
 
         AuditLog::record($admin->name ?? 'Admin', "Sent a message about {$incident_report->code}", $incident_report->code);
 
+        // Reaching out to the reporter means the case is being investigated.
+        $incident_report->autoAdvance(['Under Review'], 'Investigating', $admin->name ?? 'Admin');
+
         return response()->json($this->format($message), 201);
     }
 

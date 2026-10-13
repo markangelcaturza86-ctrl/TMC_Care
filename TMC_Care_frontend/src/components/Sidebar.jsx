@@ -1,8 +1,10 @@
 import { useMemo, useState } from 'react';
 import { ShieldCheck, ChevronDown, LogOut, X } from 'lucide-react';
 import { getVisibleSections, settingsItem } from '../data/navConfig';
+import { useSystemInfo } from '../hooks/useSystemInfo';
 
 export default function Sidebar({ route, navigate, mobileOpen, onCloseMobile, onLogout, user }) {
+  const { name: systemName } = useSystemInfo();
   // Only the sections this account's role is allowed to open.
   const sections = useMemo(() => getVisibleSections(user), [user]);
 
@@ -35,7 +37,7 @@ export default function Sidebar({ route, navigate, mobileOpen, onCloseMobile, on
             <ShieldCheck size={22} strokeWidth={2.4} />
           </div>
           <div>
-            <p className="sidebar-brand-name">TMC-Care</p>
+            <p className="sidebar-brand-name">{systemName}</p>
             <p className="sidebar-brand-sub">{panelName}</p>
           </div>
           <button className="icon-btn sidebar-close" onClick={onCloseMobile} aria-label="Close menu">

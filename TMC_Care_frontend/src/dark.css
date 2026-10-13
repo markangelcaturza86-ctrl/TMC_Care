@@ -1,0 +1,94 @@
+/* ===== Dark mode =====
+   Switched on by <html data-theme="dark"> (see context/ThemeContext.jsx).
+   Most of the app uses the CSS variables in index.css, so redefining them
+   re-colours everything; the rules below only cover hard-coded colours. */
+
+html[data-theme='dark'] {
+  --navy-950: #070C20;
+  --navy-900: #0A1128;
+  --navy-800: #101936;
+  --navy-700: #1A2547;
+
+  --blue-600: #3B7BF6;
+  --blue-500: #5B94FA;
+  --green-600: #4ADE80;
+  --amber-600: #FBBF24;
+  --red-600: #F87171;
+  --teal-600: #2DD4BF;
+  --purple-600: #A78BFA;
+
+  --blue-100: rgba(91, 148, 250, 0.16);
+  --green-100: rgba(74, 222, 128, 0.14);
+  --amber-100: rgba(251, 191, 36, 0.14);
+  --red-100: rgba(248, 113, 113, 0.16);
+  --teal-100: rgba(45, 212, 191, 0.14);
+  --purple-100: rgba(167, 139, 250, 0.18);
+
+  --bg: #0B1020;
+  --surface: #141B30;
+  --border: #26314F;
+  --text-primary: #E8ECF8;
+  --text-secondary: #9AA6C4;
+  --text-muted: #6F7B9C;
+
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.35);
+  --shadow-md: 0 8px 24px rgba(0, 0, 0, 0.45);
+}
+
+/* Buttons that keep a white label on a blue fill still need to read well */
+html[data-theme='dark'] .btn--primary { background: #2F6FED; color: #fff; }
+html[data-theme='dark'] .btn--primary:hover { background: #4C86F5; }
+
+/* Hard-coded light greys in index.css */
+html[data-theme='dark'] .stat-card.clickable:hover { border-color: #3A4870; }
+html[data-theme='dark'] .bar-track { background: #1E2745; }
+html[data-theme='dark'] .data-table td,
+html[data-theme='dark'] .settings-row { border-bottom-color: #1F2944; }
+html[data-theme='dark'] .toggle { background: #3A4566; }
+html[data-theme='dark'] .toggle--on { background: var(--blue-600); }
+
+html[data-theme='dark'] .announcement-strip p { color: #B5CBFF; }
+html[data-theme='dark'] .announcement-strip span { color: #8FA8DB; }
+
+html[data-theme='dark'] .toast--success { color: #4ADE80; }
+html[data-theme='dark'] .toast--error { color: #F87171; }
+html[data-theme='dark'] .toast--info { color: #7DB0FF; }
+html[data-theme='dark'] .login-error { color: #FCA5A5; }
+
+/* Login page: the brand name has an inline dark colour */
+html[data-theme='dark'] .login-panel .sidebar-brand-name { color: var(--text-primary) !important; }
+
+/* Form controls */
+html[data-theme='dark'] .field input,
+html[data-theme='dark'] .field select,
+html[data-theme='dark'] .field textarea,
+html[data-theme='dark'] .convo-compose textarea {
+  background: var(--bg);
+  color: var(--text-primary);
+  border-color: var(--border);
+}
+html[data-theme='dark'] input::placeholder,
+html[data-theme='dark'] textarea::placeholder { color: var(--text-muted); }
+
+/* Pastel status badges / stat icons are inline-styled: tone them down a little */
+html[data-theme='dark'] .status-badge { filter: brightness(0.92) saturate(0.95); }
+html[data-theme='dark'] .stat-icon { filter: brightness(0.9); }
+
+/* Charts (recharts) */
+html[data-theme='dark'] .recharts-cartesian-grid line { stroke: #26314F; }
+html[data-theme='dark'] .recharts-default-tooltip {
+  background-color: var(--surface) !important;
+  border-color: var(--border) !important;
+}
+html[data-theme='dark'] .recharts-tooltip-label,
+html[data-theme='dark'] .recharts-tooltip-item { color: var(--text-primary) !important; }
+html[data-theme='dark'] .recharts-legend-item-text { color: var(--text-secondary) !important; }
+
+html[data-theme='dark'] ::selection { background: rgba(91, 148, 250, 0.35); }
+
+/* Smooth switch (skipped for people who prefer reduced motion) */
+@media (prefers-reduced-motion: no-preference) {
+  body, .panel, .topbar, .data-table td, .settings-row, .field input {
+    transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease;
+  }
+}

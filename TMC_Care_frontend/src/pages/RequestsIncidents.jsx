@@ -12,6 +12,7 @@ import { useToast } from '../components/Toast';
 const STATUS_FLOW = ['Submitted', 'Under Review', 'Investigating', 'Resolved', 'Dismissed'];
 // Names offered in the "Assign to" list. Add your new case officers here.
 const STAFF = ['Unassigned', 'Admin User'];
+const PRIORITIES = ['Low', 'Medium', 'High', 'Critical'];
 
 export default function RequestsIncidents() {
   const [reports, setReports] = useState([]);
@@ -25,6 +26,20 @@ export default function RequestsIncidents() {
       .catch(() => showToast('Failed to load reports.', 'error'))
       .finally(() => setLoading(false));
   }, []);
+
+  // Opening a report: the first person to open an unassigned one becomes its
+  // assigned officer, and an "Under Review" report moves to "Investigating"
+  // when its assigned officer opens it. The server does both and returns the result.
+  const openReport = async (report) => {
+    setSelected(report);
+    try {
+      const updated = await api.post(`/incident-reports/${report.id}/open`);
+      setReports((rs) => rs.map((r) => (r.id === updated.id ? updated : r)));
+      setSelected((s) => (s && s.id === updated.id ? updated : s));
+    } catch {
+      // viewing still works even if the auto-assign call fails
+    }
+  };
 
   const applyChange = async (id, patch) => {
     // convert camelCase keys to snake_case for the backend
@@ -44,6 +59,13 @@ export default function RequestsIncidents() {
     }
   };
 
+  const setStatusManually = async (status, label) => {
+    try {
+      await applyChange(selected.id, { status });
+      showToast(`${selected.id} ${label}.`, 'success');
+    } catch { /* already toasted */ }
+  };
+
   const columns = [
     { key: 'id', header: 'Report ID', render: (r) => <span className="mono">{r.id}</span> },
     { key: 'type', header: 'Type' },
@@ -54,7 +76,7 @@ export default function RequestsIncidents() {
     { key: 'status', header: 'Status', render: (r) => <StatusBadge status={r.status} /> },
     {
       key: 'actions', header: '', render: (r) => (
-        <button className="icon-btn" onClick={() => setSelected(r)} aria-label="Manage report">
+        <button className="icon-btn" onClick={() => openReport(r)} aria-label="Manage report">
           <Eye size={17} />
         </button>
       ),
@@ -93,7 +115,7 @@ export default function RequestsIncidents() {
               <div><span>Reported By</span><b>{selected.reportedBy}</b></div>
               <div><span>Location</span><b>{selected.location || '—'}</b></div>
               <div><span>Date Submitted</span><b>{selected.dateSubmitted}</b></div>
-              <div><span>Priority</span><StatusBadge status={selected.priority} kind="priority" /></div>
+              <div><span>Priority (auto-set)</span><StatusBadge status={selected.priority} kind="priority" /></div>
               <div className="detail-full"><span>Description</span><p>{selected.description || '—'}</p></div>
               <div className="detail-full"><span>People Involved</span><p>{selected.peopleInvolved || '—'}</p></div>
             </div>
@@ -108,7 +130,7 @@ export default function RequestsIncidents() {
 
             <div className="form-row-2" style={{ marginTop: 18 }}>
               <label className="field">
-                <span>Assign to</span>
+                <span>Assigned to (whoever opened it first)</span>
                 <select
                   value={selected.assignedTo}
                   onChange={async (e) => {
@@ -124,20 +146,44 @@ export default function RequestsIncidents() {
                 </select>
               </label>
               <label className="field">
-                <span>Status</span>
+                <span>Priority (auto-set, you can adjust)</span>
                 <select
-                  value={selected.status}
+                  value={selected.priority}
                   onChange={async (e) => {
                     const value = e.target.value;
                     try {
-                      await applyChange(selected.id, { status: value });
-                      showToast(`${selected.id} marked as ${value}.`, 'success');
+                      await applyChange(selected.id, { priority: value });
+                      showToast(`${selected.id} priority set to ${value}.`, 'info');
                     } catch { /* already toasted */ }
                   }}
                 >
-                  {STATUS_FLOW.map((s) => <option key={s} value={s}>{s}</option>)}
+                  {PRIORITIES.map((p) => <option key={p} value={p}>{p}</option>)}
                 </select>
               </label>
+            </div>
+
+            <div className="field" style={{ marginTop: 14 }}>
+              <span>Status (updates automatically — only Resolved is set by you)</span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+                <StatusBadge status={selected.status} />
+                {selected.status === 'Resolved' ? (
+                  <button className="btn btn--outline" onClick={() => setStatusManually('Investigating', 'reopened')}>
+                    Reopen case
+                  </button>
+                ) : selected.status !== 'Dismissed' && (
+                  <button
+                    className="btn btn--primary"
+                    disabled={selected.status === 'Submitted'}
+                    title={selected.status === 'Submitted' ? 'Verify this report first in Pending Verifications' : undefined}
+                    onClick={() => setStatusManually('Resolved', 'marked as Resolved')}
+                  >
+                    Mark as Resolved
+                  </button>
+                )}
+              </div>
+              <small style={{ color: '#6B7280', marginTop: 6, display: 'block' }}>
+                Submitted → Under Review when verified → Investigating when the assigned officer opens it or messages the reporter.
+              </small>
             </div>
           </>
         )}

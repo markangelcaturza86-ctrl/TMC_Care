@@ -147,6 +147,11 @@ class DocumentController extends Controller
             'uploaded' => $d->uploaded_at?->format('M d, Y'),
             'size' => $this->humanSize($d->size_bytes),
             'status' => $d->status,
+            'isImage' => in_array(
+                strtolower(pathinfo((string) ($d->file_path ?: $d->name), PATHINFO_EXTENSION)),
+                ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp'],
+                true
+            ),
         ];
     }
 

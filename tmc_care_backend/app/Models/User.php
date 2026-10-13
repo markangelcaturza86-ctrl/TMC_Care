@@ -22,6 +22,7 @@ class User extends Authenticatable
         'status',
         'last_active_at',
         'avatar_color',
+        'preferences',
     ];
 
     protected $hidden = [
@@ -35,7 +36,28 @@ class User extends Authenticatable
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
             'last_active_at' => 'datetime',
+            'preferences' => 'array',
         ];
+    }
+
+    /** Settings page defaults (notification toggles + dark mode). */
+    public const DEFAULT_PREFERENCES = [
+        'email' => true,
+        'newRequests' => true,
+        'verifications' => true,
+        'digest' => false,
+        'darkMode' => false,
+    ];
+
+    /** Saved preferences merged over the defaults. */
+    public function settings(): array
+    {
+        return array_merge(self::DEFAULT_PREFERENCES, $this->getAttribute('preferences') ?? []);
+    }
+
+    public function wants(string $key): bool
+    {
+        return (bool) ($this->settings()[$key] ?? false);
     }
 
     public function role()

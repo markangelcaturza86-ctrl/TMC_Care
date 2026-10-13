@@ -69,6 +69,23 @@ class AuthController extends Controller
         return response()->json($this->formatUser($user));
     }
 
+    public function updatePreferences(Request $request)
+    {
+        $data = $request->validate([
+            'email' => ['sometimes', 'boolean'],
+            'newRequests' => ['sometimes', 'boolean'],
+            'verifications' => ['sometimes', 'boolean'],
+            'digest' => ['sometimes', 'boolean'],
+            'darkMode' => ['sometimes', 'boolean'],
+        ]);
+
+        $user = $request->user();
+        $user->preferences = array_merge($user->settings(), $data);
+        $user->save();
+
+        return response()->json($this->formatUser($user));
+    }
+
     public function updatePassword(Request $request)
     {
         $data = $request->validate([
@@ -103,6 +120,7 @@ class AuthController extends Controller
             'permissions' => $user->role?->permissions ?? [],
             // Which sections of the admin panel this account may open.
             'access' => $user->accessMap(),
+            'preferences' => $user->settings(),
         ];
     }
 }

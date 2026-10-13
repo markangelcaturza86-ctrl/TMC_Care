@@ -125,6 +125,12 @@ class AdminNotificationController extends Controller
             );
         }
 
+        // Settings > Notification Preferences: documents follow "Pending
+        // verifications", everything else follows "New requests".
+        $wantsRequests = $user->wants('newRequests');
+        $wantsVerifications = $user->wants('verifications');
+        $items = $items->filter(fn ($i) => str_starts_with($i['id'], 'doc-') ? $wantsVerifications : $wantsRequests);
+
         return response()->json(
             $items->filter(fn ($i) => $i['at'])
                 ->sortByDesc(fn ($i) => $i['at']->getTimestamp())

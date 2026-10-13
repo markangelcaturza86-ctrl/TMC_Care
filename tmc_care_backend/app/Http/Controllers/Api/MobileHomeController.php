@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\Announcement;
 use App\Models\AuditLog;
+use App\Services\AdminAlerts;
 use App\Models\Document;
 use App\Models\EmergencyContact;
 use App\Models\Faq;
@@ -88,6 +89,12 @@ class MobileHomeController extends Controller
 
         AuditLog::record($user->name, "Submitted incident report {$report->code} (mobile app)", $report->code);
 
+        AdminAlerts::send(
+            'incident',
+            "New incident report {$report->code}",
+            "A new {$report->type} incident report ({$report->code}) was filed by {$report->reported_by}.\nPriority: {$report->priority}\n\nOpen the TMC-Care admin panel to review it."
+        );
+
         return response()->json($this->formatIncident($report), 201);
     }
 
@@ -142,6 +149,12 @@ class MobileHomeController extends Controller
 
         AuditLog::record($user->name, "Submitted financial request {$fr->code} (mobile app)", $fr->code);
 
+        AdminAlerts::send(
+            'financial',
+            "New financial assistance request {$fr->code}",
+            "A new {$fr->type} request ({$fr->code}) was filed by {$fr->student_name}.\n\nOpen the TMC-Care admin panel to review it."
+        );
+
         return response()->json($this->formatFinancial($fr), 201);
     }
 
@@ -191,6 +204,12 @@ class MobileHomeController extends Controller
         ]);
 
         AuditLog::record($user->name, "Uploaded document {$document->name} (mobile app)", $document->code);
+
+        AdminAlerts::send(
+            'document',
+            "New document uploaded: {$document->name}",
+            "{$user->name} uploaded \"{$document->name}\" for {$document->linked_code}.\n\nOpen the TMC-Care admin panel to verify it."
+        );
 
         return response()->json([
             'id' => $document->code,

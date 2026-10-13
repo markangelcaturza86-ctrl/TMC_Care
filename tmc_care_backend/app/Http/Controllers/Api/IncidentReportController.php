@@ -8,6 +8,7 @@ use App\Models\Document;
 use App\Models\IncidentReport;
 use App\Models\Notification;
 use App\Models\Student;
+use App\Services\IncidentPriority;
 use Illuminate\Http\Request;
 
 class IncidentReportController extends Controller
@@ -63,7 +64,8 @@ class IncidentReportController extends Controller
             'location' => $data['location'] ?? null,
             'date_submitted' => now()->toDateString(),
             'status' => 'Submitted',
-            'priority' => $data['priority'] ?? 'Medium',
+            // Worked out from the type + description (see App\Services\IncidentPriority).
+            'priority' => IncidentPriority::determine($data['type'], $data['description'] ?? null),
             'assigned_to' => 'Unassigned',
             'description' => $data['description'] ?? null,
         ]);
@@ -75,6 +77,35 @@ class IncidentReportController extends Controller
 
     public function show(IncidentReport $incident_report)
     {
+        return response()->json($this->format($incident_report));
+    }
+
+    /**
+     * Called by the admin panel the moment someone opens a report.
+     *  1. If nobody is assigned yet, the FIRST person to open it becomes the
+     *     assigned officer (the UPDATE is conditional, so two people opening
+     *     at the same time can't both win).
+     *  2. If the assigned officer opens a report that is "Under Review",
+     *     it automatically moves to "Investigating".
+     */
+    public function open(Request $request, IncidentReport $incident_report)
+    {
+        $name = $request->user()->name ?? 'Admin';
+
+        $claimed = IncidentReport::where('id', $incident_report->id)
+            ->where(fn ($q) => $q->where('assigned_to', 'Unassigned')->orWhereNull('assigned_to')->orWhere('assigned_to', ''))
+            ->update(['assigned_to' => $name, 'updated_at' => now()]);
+
+        if ($claimed) {
+            AuditLog::record($name, "Opened {$incident_report->code} first and was auto-assigned", $incident_report->code);
+        }
+
+        $incident_report->refresh();
+
+        if ($incident_report->assigned_to === $name) {
+            $incident_report->autoAdvance(['Under Review'], 'Investigating', $name);
+        }
+
         return response()->json($this->format($incident_report));
     }
 

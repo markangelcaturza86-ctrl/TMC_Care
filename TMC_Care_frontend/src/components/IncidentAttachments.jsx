@@ -11,7 +11,11 @@ import './attachments.css';
  * Use with a `key` so it starts fresh for every report:
  *   <IncidentAttachments key={report.id} files={report.attachments} />
  */
-export default function IncidentAttachments({ files = [] }) {
+export default function IncidentAttachments({
+  files = [],
+  title = 'Photos & attachments',
+  emptyText = 'The reporter did not attach any photos or files.',
+}) {
   const images = files.filter((f) => f.isImage);
   const others = files.filter((f) => !f.isImage);
 
@@ -77,12 +81,12 @@ export default function IncidentAttachments({ files = [] }) {
   return (
     <div className="attach-section">
       <div className="attach-head">
-        <h4>Photos &amp; attachments</h4>
+        <h4>{title}</h4>
         <span>{files.length} file{files.length === 1 ? '' : 's'}</span>
       </div>
 
       {files.length === 0 ? (
-        <p className="attach-empty">The reporter did not attach any photos or files.</p>
+        <p className="attach-empty">{emptyText}</p>
       ) : (
         <div className="attach-grid">
           {images.map((f) => {

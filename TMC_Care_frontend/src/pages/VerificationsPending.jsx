@@ -1,10 +1,10 @@
 import { useState, useEffect } from 'react';
-import { FileText } from 'lucide-react';
 import PageHeader from '../components/PageHeader';
 import DataTable from '../components/DataTable';
 import StatusBadge from '../components/StatusBadge';
 import Modal from '../components/Modal';
-import { api, openProtectedFile } from '../api/client';
+import IncidentAttachments from '../components/IncidentAttachments';
+import { api } from '../api/client';
 import { useToast } from '../components/Toast';
 
 export default function VerificationsPending() {
@@ -38,18 +38,14 @@ export default function VerificationsPending() {
   const openReview = (item) => {
     setRemarks('');
     setSelected(item);
+    // Whoever opens an unassigned incident report first becomes its assigned officer.
+    if (item.type === 'Incident') {
+      api.post(`/incident-reports/${item.id}/open`).catch(() => { /* review still works */ });
+    }
   };
 
   const closeReview = () => {
     if (!resolving) setSelected(null);
-  };
-
-  const openDocument = async (doc) => {
-    try {
-      await openProtectedFile(`/documents/${doc.id}/download`, doc.name);
-    } catch (err) {
-      showToast(err.message, 'error');
-    }
   };
 
   const resolve = async (status) => {
@@ -154,22 +150,12 @@ export default function VerificationsPending() {
             })}
 
             <div className="detail-full">
-              <span>Documents to Review ({(selected.documents ?? []).length})</span>
-              {(selected.documents ?? []).length === 0 ? (
-                <p>No documents were attached to this request.</p>
-              ) : (
-                <ul className="doc-list doc-list--files">
-                  {(selected.documents ?? []).map((d) => (
-                    <li key={d.id} style={{ justifyContent: 'space-between' }}>
-                      <button type="button" className="link-btn" onClick={() => openDocument(d)} title="Open this file">
-                        <FileText size={15} style={{ verticalAlign: 'text-bottom', marginRight: 6 }} />
-                        {d.name}
-                      </button>
-                      <span style={{ color: '#6B7280', fontSize: 12 }}>{d.size}</span>
-                    </li>
-                  ))}
-                </ul>
-              )}
+              <IncidentAttachments
+                key={selected.id}
+                files={selected.documents ?? []}
+                title="Photos & documents to review"
+                emptyText="No photos or documents were attached to this request."
+              />
             </div>
 
             <label className="field detail-full">

@@ -19,6 +19,7 @@ use App\Http\Controllers\Api\PersonnelAuthController;
 use App\Http\Controllers\Api\PersonnelController;
 use App\Http\Controllers\Api\RoleController;
 use App\Http\Controllers\Api\StudentController;
+use App\Http\Controllers\Api\SystemController;
 use App\Http\Controllers\Api\StudentAuthController;
 use App\Http\Controllers\Api\VerificationController;
 use Illuminate\Support\Facades\Route;
@@ -75,6 +76,10 @@ Route::middleware(['auth:sanctum', 'admin'])->group(function () {
     Route::get('/me', [AuthController::class, 'me']);
     Route::put('/me', [AuthController::class, 'updateProfile']);
     Route::put('/me/password', [AuthController::class, 'updatePassword']);
+    Route::put('/me/preferences', [AuthController::class, 'updatePreferences']);
+
+    Route::get('/system', [SystemController::class, 'show']);
+    Route::put('/system', [SystemController::class, 'update']);
 
     Route::get('/dashboard', [DashboardController::class, 'index']);
     Route::get('/notifications', [AdminNotificationController::class, 'index']);
