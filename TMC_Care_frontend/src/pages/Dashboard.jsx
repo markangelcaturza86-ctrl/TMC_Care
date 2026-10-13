@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 import {
-  ClipboardList, TriangleAlert, HandCoins, Clock3, CheckCircle2, BadgeCheck,
-  CheckCircle, Upload, FileText,
+  ClipboardList, TriangleAlert, HandCoins, GraduationCap, Briefcase, Users,
 } from 'lucide-react';
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
@@ -11,17 +10,25 @@ import PageHeader from '../components/PageHeader';
 import StatCard from '../components/StatCard';
 import StatusBadge from '../components/StatusBadge';
 import { api } from '../api/client';
-
-const activityIcons = { check: CheckCircle, clock: Clock3, file: FileText, upload: Upload };
+import { getStoredUser } from '../data/navConfig';
+import { GuidanceDashboard, TreasurerDashboard, DepartmentDashboard } from '../components/RoleDashboards';
 
 export default function Dashboard({ navigate }) {
   const [data, setData] = useState(null);
+  // Guidance Counselor -> incidents only, Treasurer -> financial only.
+  const access = getStoredUser()?.access ?? { incidents: true, financial: true };
+  const canOpenUsers = !!access.users;
 
   useEffect(() => {
     api.get('/dashboard').then(setData).catch(console.error);
   }, []);
 
   if (!data) return <div className="page-stack">Loading…</div>;
+
+  // Each role sees a dashboard about its own work.
+  if (data.focus === 'guidance') return <GuidanceDashboard data={data} navigate={navigate} />;
+  if (data.focus === 'treasurer') return <TreasurerDashboard data={data} navigate={navigate} />;
+  if (data.focus === 'department') return <DepartmentDashboard data={data} navigate={navigate} />;
 
   const {
     stats: dashboardStats,
@@ -39,27 +46,34 @@ export default function Dashboard({ navigate }) {
       <PageHeader title="Dashboard" subtitle="Overview of the system and pending actions." />
 
       <div className="stat-grid">
+        <StatCard icon={Users} iconBg="#E7EEFD" iconColor="#2F6FED"
+          label="Total Users" value={(dashboardStats.totalStudents ?? 0) + (dashboardStats.totalPersonnel ?? 0)}
+          delta="Students and personnel" deltaTone="neutral"
+          onClick={canOpenUsers ? () => navigate('/users') : undefined} />
+        <StatCard icon={GraduationCap} iconBg="#EDE9FE" iconColor="#7C3AED"
+          label="Total Student Users" value={dashboardStats.totalStudents ?? 0}
+          delta="Registered in the app" deltaTone="neutral"
+          onClick={canOpenUsers ? () => navigate('/users') : undefined} />
+        <StatCard icon={Briefcase} iconBg="#CCFBF1" iconColor="#0F766E"
+          label="Total Personnel Users" value={dashboardStats.totalPersonnel ?? 0}
+          delta="Registered in the app" deltaTone="neutral"
+          onClick={canOpenUsers ? () => navigate('/users') : undefined} />
+
         <StatCard icon={ClipboardList} iconBg="#E7EEFD" iconColor="#2F6FED"
           label="Total Reports" value={dashboardStats.totalReports}
           delta={dashboardStats.totalReportsDelta} deltaTone="up" />
-        <StatCard icon={TriangleAlert} iconBg="#FEE7DC" iconColor="#EA580C"
-          label="Incident Reports" value={dashboardStats.incidentReports}
-          delta={dashboardStats.incidentReportsDelta} deltaTone="up"
-          onClick={() => navigate('/reports/incidents')} />
-        <StatCard icon={HandCoins} iconBg="#DCFCE7" iconColor="#16A34A"
-          label="Financial Requests" value={dashboardStats.financialRequests}
-          delta={dashboardStats.financialRequestsDelta} deltaTone="up"
-          onClick={() => navigate('/reports/financial')} />
-        <StatCard icon={Clock3} iconBg="#FEF3C7" iconColor="#D97706"
-          label="Pending Verifications" value={dashboardStats.pendingVerifications}
-          delta="Requires attention" deltaTone="warn"
-          onClick={() => navigate('/verifications/pending')} />
-        <StatCard icon={BadgeCheck} iconBg="#EDE9FE" iconColor="#7C3AED"
-          label="Approved Requests" value={dashboardStats.approvedRequests}
-          delta="This month" deltaTone="neutral" />
-        <StatCard icon={CheckCircle2} iconBg="#CCFBF1" iconColor="#0F766E"
-          label="Assistance Released" value={dashboardStats.assistanceReleased}
-          delta="This month" deltaTone="neutral" />
+        {access.incidents && (
+          <StatCard icon={TriangleAlert} iconBg="#FEE7DC" iconColor="#EA580C"
+            label="Incident Reports" value={dashboardStats.incidentReports}
+            delta={dashboardStats.incidentReportsDelta} deltaTone="up"
+            onClick={() => navigate('/reports/incidents')} />
+        )}
+        {access.financial && (
+          <StatCard icon={HandCoins} iconBg="#DCFCE7" iconColor="#16A34A"
+            label="Financial Requests" value={dashboardStats.financialRequests}
+            delta={dashboardStats.financialRequestsDelta} deltaTone="up"
+            onClick={() => navigate('/reports/financial')} />
+        )}
       </div>
 
       <div className="grid-2fr-1fr">
@@ -78,44 +92,46 @@ export default function Dashboard({ navigate }) {
               <XAxis dataKey="day" tick={{ fontSize: 12, fill: '#6B7280' }} axisLine={false} tickLine={false} />
               <YAxis tick={{ fontSize: 12, fill: '#6B7280' }} axisLine={false} tickLine={false} />
               <Tooltip contentStyle={{ borderRadius: 10, border: '1px solid #E5E9F2', fontSize: 13 }} />
-              <Line type="monotone" dataKey="incidents" name="Incident Reports" stroke="#2F6FED" strokeWidth={2.5} dot={{ r: 3 }} />
-              <Line type="monotone" dataKey="financial" name="Financial Requests" stroke="#16A34A" strokeWidth={2.5} dot={{ r: 3 }} />
+              {access.incidents && <Line type="monotone" dataKey="incidents" name="Incident Reports" stroke="#2F6FED" strokeWidth={2.5} dot={{ r: 3 }} />}
+              {access.financial && <Line type="monotone" dataKey="financial" name="Financial Requests" stroke="#16A34A" strokeWidth={2.5} dot={{ r: 3 }} />}
             </LineChart>
           </ResponsiveContainer>
           <div className="legend-row">
-            <span><i className="legend-dot" style={{ background: '#2F6FED' }} /> Incident Reports</span>
-            <span><i className="legend-dot" style={{ background: '#16A34A' }} /> Financial Requests</span>
+            {access.incidents && <span><i className="legend-dot" style={{ background: '#2F6FED' }} /> Incident Reports</span>}
+            {access.financial && <span><i className="legend-dot" style={{ background: '#16A34A' }} /> Financial Requests</span>}
           </div>
         </div>
 
-        <div className="panel">
-          <div className="panel-header">
-            <h3>Requests by Status</h3>
+        {access.financial && (
+          <div className="panel">
+            <div className="panel-header">
+              <h3>Requests by Status</h3>
+            </div>
+            <div className="donut-wrap">
+              <ResponsiveContainer width="100%" height={220}>
+                <PieChart>
+                  <Pie data={requestsByStatus} dataKey="value" nameKey="name" innerRadius={58} outerRadius={88} paddingAngle={2}>
+                    {requestsByStatus.map((entry) => (
+                      <Cell key={entry.name} fill={entry.color} stroke="none" />
+                    ))}
+                  </Pie>
+                  <Tooltip contentStyle={{ borderRadius: 10, border: '1px solid #E5E9F2', fontSize: 13 }} />
+                </PieChart>
+              </ResponsiveContainer>
+              <ul className="donut-legend">
+                {requestsByStatus.map((s) => (
+                  <li key={s.name}>
+                    <span>
+                      <i className="legend-dot" style={{ background: s.color }} />
+                      {s.name}
+                    </span>
+                    <b>{s.value} ({total ? Math.round((s.value / total) * 100) : 0}%)</b>
+                  </li>
+                ))}
+              </ul>
+            </div>
           </div>
-          <div className="donut-wrap">
-            <ResponsiveContainer width="100%" height={220}>
-              <PieChart>
-                <Pie data={requestsByStatus} dataKey="value" nameKey="name" innerRadius={58} outerRadius={88} paddingAngle={2}>
-                  {requestsByStatus.map((entry) => (
-                    <Cell key={entry.name} fill={entry.color} stroke="none" />
-                  ))}
-                </Pie>
-                <Tooltip contentStyle={{ borderRadius: 10, border: '1px solid #E5E9F2', fontSize: 13 }} />
-              </PieChart>
-            </ResponsiveContainer>
-            <ul className="donut-legend">
-              {requestsByStatus.map((s) => (
-                <li key={s.name}>
-                  <span>
-                    <i className="legend-dot" style={{ background: s.color }} />
-                    {s.name}
-                  </span>
-                  <b>{s.value} ({total ? Math.round((s.value / total) * 100) : 0}%)</b>
-                </li>
-              ))}
-            </ul>
-          </div>
-        </div>
+        )}
       </div>
 
       <div className="grid-2fr-1fr">
@@ -146,25 +162,27 @@ export default function Dashboard({ navigate }) {
           </div>
         </div>
 
-        <div className="panel">
-          <div className="panel-header">
-            <h3>Top Request Types (Financial Assistance)</h3>
-          </div>
-          <div className="bar-list">
-            {topRequestTypes.map((r) => {
-              const max = Math.max(...topRequestTypes.map((x) => x.count));
-              return (
-                <div className="bar-row" key={r.type}>
-                  <span className="bar-label">{r.type}</span>
-                  <div className="bar-track">
-                    <div className="bar-fill" style={{ width: `${(r.count / max) * 100}%` }} />
+        {access.financial && (
+          <div className="panel">
+            <div className="panel-header">
+              <h3>Top Request Types (Financial Assistance)</h3>
+            </div>
+            <div className="bar-list">
+              {topRequestTypes.map((r) => {
+                const max = Math.max(...topRequestTypes.map((x) => x.count));
+                return (
+                  <div className="bar-row" key={r.type}>
+                    <span className="bar-label">{r.type}</span>
+                    <div className="bar-track">
+                      <div className="bar-fill" style={{ width: `${(r.count / max) * 100}%` }} />
+                    </div>
+                    <span className="bar-value">{r.count}</span>
                   </div>
-                  <span className="bar-value">{r.count}</span>
-                </div>
-              );
-            })}
+                );
+              })}
+            </div>
           </div>
-        </div>
+        )}
       </div>
 
       <div className="grid-2fr-1fr">

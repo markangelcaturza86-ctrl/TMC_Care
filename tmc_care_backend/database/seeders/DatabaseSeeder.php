@@ -13,7 +13,7 @@ class DatabaseSeeder extends Seeder
     public function run(): void
     {
         // --- Departments ---
-        foreach (['CCJE', 'CCS', 'COAD', 'COED', 'POLSCI'] as $name) {
+        foreach (['CCS', 'CCJE', 'COAD', 'CAS', 'COED'] as $name) {
             Department::create(['name' => $name]);
         }
 
@@ -39,5 +39,8 @@ class DatabaseSeeder extends Seeder
             'status' => 'Active',
             'last_active_at' => now(),
         ]);
+
+        // --- Guidance Counselor + Treasurer roles and logins ---
+        $this->call(StaffAccountsSeeder::class);
     }
 }

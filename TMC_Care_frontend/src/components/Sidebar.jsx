@@ -1,14 +1,17 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { ShieldCheck, ChevronDown, LogOut, X } from 'lucide-react';
-import { navSections, settingsItem } from '../data/navConfig';
+import { getVisibleSections, settingsItem } from '../data/navConfig';
 
-export default function Sidebar({ route, navigate, mobileOpen, onCloseMobile, onLogout }) {
-  const activeSectionIndex = navSections.findIndex((s) =>
+export default function Sidebar({ route, navigate, mobileOpen, onCloseMobile, onLogout, user }) {
+  // Only the sections this account's role is allowed to open.
+  const sections = useMemo(() => getVisibleSections(user), [user]);
+
+  const activeSectionIndex = sections.findIndex((s) =>
     s.items.some((i) => i.path === route)
   );
   const [openSections, setOpenSections] = useState(() => {
     const initial = {};
-    navSections.forEach((s, idx) => { initial[idx] = idx === activeSectionIndex; });
+    sections.forEach((s, idx) => { initial[idx] = idx === activeSectionIndex; });
     return initial;
   });
 
@@ -21,6 +24,8 @@ export default function Sidebar({ route, navigate, mobileOpen, onCloseMobile, on
     onCloseMobile?.();
   };
 
+  const panelName = user?.role && user.role !== 'Super Administrator' ? user.role : 'Admin Panel';
+
   return (
     <>
       {mobileOpen && <div className="sidebar-scrim" onClick={onCloseMobile} />}
@@ -31,7 +36,7 @@ export default function Sidebar({ route, navigate, mobileOpen, onCloseMobile, on
           </div>
           <div>
             <p className="sidebar-brand-name">TMC-Care</p>
-            <p className="sidebar-brand-sub">Admin Panel</p>
+            <p className="sidebar-brand-sub">{panelName}</p>
           </div>
           <button className="icon-btn sidebar-close" onClick={onCloseMobile} aria-label="Close menu">
             <X size={18} />
@@ -39,7 +44,7 @@ export default function Sidebar({ route, navigate, mobileOpen, onCloseMobile, on
         </div>
 
         <nav className="sidebar-nav">
-          {navSections.map((section, idx) => {
+          {sections.map((section, idx) => {
             const isSingle = section.items.length === 1 && !section.icon;
             if (isSingle) {
               const item = section.items[0];
@@ -59,7 +64,7 @@ export default function Sidebar({ route, navigate, mobileOpen, onCloseMobile, on
               );
             }
             const SectionIcon = section.icon;
-            const open = !!openSections[idx];
+            const open = !!openSections[idx] || section.items.some((i) => i.path === route);
             const sectionActive = section.items.some((i) => i.path === route);
             return (
               <div className="nav-group" key={section.label}>

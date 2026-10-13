@@ -4,7 +4,9 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\AuditLog;
+use App\Models\Document;
 use App\Models\IncidentReport;
+use App\Models\Notification;
 use App\Models\Student;
 use Illuminate\Http\Request;
 
@@ -23,7 +25,19 @@ class IncidentReportController extends Controller
                     ->orWhere('location', 'like', "%{$search}%");
             });
         }
-        return response()->json($q->orderByDesc('id')->get()->map(fn ($r) => $this->format($r)));
+
+        $reports = $q->orderByDesc('id')->get();
+
+        // One query for every attachment instead of one query per report.
+        $docs = Document::where('linked_type', 'incident_report')
+            ->whereIn('linked_id', $reports->pluck('id'))
+            ->orderBy('id')
+            ->get()
+            ->groupBy('linked_id');
+
+        return response()->json(
+            $reports->map(fn ($r) => $this->format($r, $docs->get($r->id, collect())))
+        );
     }
 
     public function store(Request $request)
@@ -39,7 +53,7 @@ class IncidentReportController extends Controller
         ]);
 
         $year = now()->year;
-        $seq = str_pad((string) (IncidentReport::count() + 1), 4, '0', STR_PAD_LEFT);
+        $seq = str_pad((string) ((IncidentReport::max('id') ?? 0) + 1), 4, '0', STR_PAD_LEFT);
 
         $report = IncidentReport::create([
             'code' => "IR-{$year}-{$seq}",
@@ -75,6 +89,12 @@ class IncidentReportController extends Controller
 
         if (isset($data['status'])) {
             AuditLog::record($request->user()?->name ?? 'System', "Updated incident report status to {$data['status']}", $incident_report->code);
+
+            if ($incident_report->student_id) {
+                Notification::notifyStudent($incident_report->student_id, "Incident report {$incident_report->code} updated", "Status changed to {$data['status']}.", $incident_report->code);
+            } elseif ($incident_report->personnel_id) {
+                Notification::notifyPersonnel($incident_report->personnel_id, "Incident report {$incident_report->code} updated", "Status changed to {$data['status']}.", $incident_report->code);
+            }
         }
         if (isset($data['assigned_to'])) {
             AuditLog::record($request->user()?->name ?? 'System', "Assigned {$incident_report->code} to {$data['assigned_to']}", $incident_report->code);
@@ -89,8 +109,13 @@ class IncidentReportController extends Controller
         return response()->json(['message' => 'Deleted']);
     }
 
-    private function format(IncidentReport $r): array
+    private function format(IncidentReport $r, $docs = null): array
     {
+        $docs ??= Document::where('linked_type', 'incident_report')
+            ->where('linked_id', $r->id)
+            ->orderBy('id')
+            ->get();
+
         return [
             'id' => $r->code,
             'type' => $r->type,
@@ -102,6 +127,27 @@ class IncidentReportController extends Controller
             'priority' => $r->priority,
             'assignedTo' => $r->assigned_to,
             'description' => $r->description,
+            'incidentDate' => $r->incident_date?->toIso8601String(),
+            'peopleInvolved' => $r->people_involved,
+            // False for anonymous reports - there is nobody to send a message to.
+            'canMessage' => (bool) ($r->student_id || $r->personnel_id),
+            // Photos / files the reporter attached in the mobile app.
+            // The admin panel loads each one from GET /documents/{id}/download.
+            'attachments' => $docs->map(fn ($d) => [
+                'id' => $d->code,
+                'name' => $d->name,
+                'isImage' => $this->isImage($d->file_path ?: $d->name),
+                'status' => $d->status,
+            ])->values(),
         ];
+    }
+
+    private function isImage(?string $name): bool
+    {
+        return in_array(
+            strtolower(pathinfo((string) $name, PATHINFO_EXTENSION)),
+            ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp'],
+            true
+        );
     }
 }

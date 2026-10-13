@@ -83,3 +83,10 @@ export async function openProtectedFile(path, filename = 'file') {
     throw err;
   }
 }
+
+// Loads a protected file (e.g. a photo sent by a student) and returns a temporary
+// blob: URL that can be used as <img src>. Call URL.revokeObjectURL(url) when done.
+export async function fetchProtectedBlobUrl(path) {
+  const blob = await fetchBlob(path);
+  return URL.createObjectURL(blob);
+}

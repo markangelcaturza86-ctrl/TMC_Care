@@ -10,9 +10,9 @@ class AuditLog extends Model
 
     public static function record(string $actor, string $action, ?string $target = null, ?string $ip = null): self
     {
-        $count = static::count() + 3001;
+        $next = (static::max('id') ?? 0) + 1;
         return static::create([
-            'code' => 'LOG-' . $count,
+            'code' => 'LOG-' . $next,
             'actor' => $actor,
             'action' => $action,
             'target' => $target,

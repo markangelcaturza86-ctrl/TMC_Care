@@ -4,11 +4,14 @@ import PageHeader from '../components/PageHeader';
 import DataTable from '../components/DataTable';
 import StatusBadge from '../components/StatusBadge';
 import Modal from '../components/Modal';
+import IncidentAttachments from '../components/IncidentAttachments';
+import IncidentConversation from '../components/IncidentConversation';
 import { api } from '../api/client';
 import { useToast } from '../components/Toast';
 
 const STATUS_FLOW = ['Submitted', 'Under Review', 'Investigating', 'Resolved', 'Dismissed'];
-const STAFF = ['Unassigned', 'Bartolome Reyes', 'Ivy Tan-Ocampo', 'Admin User'];
+// Names offered in the "Assign to" list. Add your new case officers here.
+const STAFF = ['Unassigned', 'Admin User'];
 
 export default function RequestsIncidents() {
   const [reports, setReports] = useState([]);
@@ -47,6 +50,7 @@ export default function RequestsIncidents() {
     { key: 'reportedBy', header: 'Reported By' },
     { key: 'priority', header: 'Priority', render: (r) => <StatusBadge status={r.priority} kind="priority" /> },
     { key: 'assignedTo', header: 'Assigned To' },
+    { key: 'attachments', header: 'Photos', render: (r) => (r.attachments?.length ?? 0) },
     { key: 'status', header: 'Status', render: (r) => <StatusBadge status={r.status} /> },
     {
       key: 'actions', header: '', render: (r) => (
@@ -81,7 +85,7 @@ export default function RequestsIncidents() {
         )}
       </div>
 
-      <Modal open={!!selected} onClose={() => setSelected(null)} title={selected?.id} width={620}>
+      <Modal open={!!selected} onClose={() => setSelected(null)} title={selected?.id} width={700}>
         {selected && (
           <>
             <div className="detail-grid">
@@ -91,7 +95,16 @@ export default function RequestsIncidents() {
               <div><span>Date Submitted</span><b>{selected.dateSubmitted}</b></div>
               <div><span>Priority</span><StatusBadge status={selected.priority} kind="priority" /></div>
               <div className="detail-full"><span>Description</span><p>{selected.description || '—'}</p></div>
+              <div className="detail-full"><span>People Involved</span><p>{selected.peopleInvolved || '—'}</p></div>
             </div>
+
+            <IncidentAttachments key={selected.id} files={selected.attachments ?? []} />
+
+            <IncidentConversation
+              key={`convo-${selected.id}`}
+              reportId={selected.id}
+              canMessage={selected.canMessage !== false}
+            />
 
             <div className="form-row-2" style={{ marginTop: 18 }}>
               <label className="field">
@@ -106,7 +119,8 @@ export default function RequestsIncidents() {
                     } catch { /* already toasted */ }
                   }}
                 >
-                  {STAFF.map((s) => <option key={s} value={s}>{s}</option>)}
+                  {(STAFF.includes(selected.assignedTo) ? STAFF : [...STAFF, selected.assignedTo])
+                    .map((s) => <option key={s} value={s}>{s}</option>)}
                 </select>
               </label>
               <label className="field">

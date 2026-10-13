@@ -4,170 +4,166 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\AuditLog;
-use App\Models\Document;
 use App\Models\FinancialRequest;
 use App\Models\IncidentReport;
+use App\Models\Notification;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Str;
 
 class VerificationController extends Controller
 {
     /**
-     * A request waits in the verification queue only while its status is "Submitted".
-     * Once an admin verifies or rejects it the status changes, so it leaves the queue.
+     * Requests waiting for a first look. Each item carries everything the
+     * "Review" window needs: the request details (`fields`) and its documents.
      */
-    private const PENDING_STATUS = 'Submitted';
-
-    /** GET /api/verifications/pending */
-    public function pending()
+    public function pending(Request $request)
     {
-        $financial = FinancialRequest::with(['student', 'personnel'])
-            ->where('status', self::PENDING_STATUS)
-            ->get()
-            ->map(fn (FinancialRequest $r) => [
-                'id' => $r->code,
-                'type' => 'Financial',
-                'requestedBy' => $r->student?->name ?? $r->personnel?->name ?? $r->student_name ?? 'Unknown',
-                'dateSubmitted' => $r->date_submitted?->format('M d, Y'),
-                'createdAt' => $r->created_at?->toIso8601String(),
-                'status' => 'Pending',
-                'fields' => $this->fields([
-                    'Assistance Type' => $r->type,
-                    'Student / Beneficiary' => $r->student_name,
-                    'Program' => $r->program,
-                    'Amount Requested' => '₱' . number_format((float) $r->amount_requested, 2),
-                    'Reason' => $r->reason,
-                ], $r->details),
-                'documents' => $this->documentsFor('financial_request', $r->id),
-            ])
-            ->all();
+        $user = $request->user();
 
-        $incidents = IncidentReport::with(['student', 'personnel'])
-            ->where('status', self::PENDING_STATUS)
-            ->get()
-            ->map(fn (IncidentReport $r) => [
-                'id' => $r->code,
-                'type' => 'Incident',
-                'requestedBy' => $r->reported_by ?: 'Anonymous',
-                'dateSubmitted' => $r->date_submitted?->format('M d, Y'),
-                'createdAt' => $r->created_at?->toIso8601String(),
-                'status' => 'Pending',
-                'fields' => $this->fields([
-                    'Incident Type' => $r->type,
-                    'Location' => $r->location,
-                    'Priority' => $r->priority,
-                    'Description' => $r->description,
-                ], $r->details),
-                'documents' => $this->documentsFor('incident_report', $r->id),
-            ])
-            ->all();
+        // Treasurer -> financial only, Guidance Counselor -> incidents only.
+        $financial = $user->canManageFinancial()
+            ? FinancialRequest::where('status', 'Submitted')->get()
+                ->map(fn ($r) => [
+                    'id' => $r->code,
+                    'type' => 'Financial',
+                    'requestedBy' => $r->student_name,
+                    'dateSubmitted' => $r->date_submitted?->format('M d, Y'),
+                    'status' => 'Pending',
+                    'fields' => $this->financialFields($r),
+                    'documents' => $this->documents($r),
+                    '_sort' => $r->created_at?->getTimestamp() ?? 0,
+                ])
+            : collect();
 
-        // Plain arrays on purpose: Eloquent collections override merge() and break on non-model items.
+        $incidents = $user->canManageIncidents()
+            ? IncidentReport::where('status', 'Submitted')->get()
+                ->map(fn ($r) => [
+                    'id' => $r->code,
+                    'type' => 'Incident',
+                    'requestedBy' => $r->reported_by,
+                    'dateSubmitted' => $r->date_submitted?->format('M d, Y'),
+                    'status' => 'Pending',
+                    'fields' => $this->incidentFields($r),
+                    'documents' => $this->documents($r),
+                    '_sort' => $r->created_at?->getTimestamp() ?? 0,
+                ])
+            : collect();
+
+        // toBase(): an EMPTY Eloquent collection stays an Eloquent collection after map(),
+        // and merging arrays into it crashes (getKey() on array).
         return response()->json(
-            collect(array_merge($financial, $incidents))->sortByDesc('createdAt')->values()
+            $financial->toBase()->concat($incidents->toBase())
+                ->sortByDesc('_sort')
+                ->map(function ($i) {
+                    unset($i['_sort']);
+                    return $i;
+                })
+                ->values()
         );
     }
 
-    /** POST /api/verifications/{id}/resolve   body: { status: "Verified"|"Rejected", remarks?: string } */
     public function resolve(Request $request, string $id)
     {
         $data = $request->validate([
             'status' => ['required', 'in:Verified,Rejected'],
             'remarks' => ['nullable', 'string', 'max:150'],
         ]);
-
-        $decision = $data['status'];
-        $verified = $decision === 'Verified';
+        $user = $request->user();
 
         if (str_starts_with($id, 'FR-')) {
+            abort_unless($user->canManageFinancial(), 403, 'Only the Treasurer can resolve financial requests.');
             $record = FinancialRequest::where('code', $id)->firstOrFail();
-            $linkedType = 'financial_request';
-            $nextStatus = $verified ? 'Under Verification' : 'Declined';
-        } elseif (str_starts_with($id, 'IR-')) {
-            $record = IncidentReport::where('code', $id)->firstOrFail();
-            $linkedType = 'incident_report';
-            $nextStatus = $verified ? 'Under Review' : 'Dismissed';
+            $this->ensureStillPending($record);
+            $newStatus = $data['status'] === 'Verified' ? 'Under Verification' : 'Declined';
         } else {
-            abort(404, 'Unknown request ID.');
+            abort_unless($user->canManageIncidents(), 403, 'Only the Guidance Counselor can resolve incident reports.');
+            $record = IncidentReport::where('code', $id)->firstOrFail();
+            $this->ensureStillPending($record);
+            $newStatus = $data['status'] === 'Verified' ? 'Under Review' : 'Dismissed';
         }
 
-        // The "where status = Submitted" inside the UPDATE makes this safe even if two
-        // admins click at the same moment: only one of them can win.
-        $changed = DB::transaction(function () use ($record, $nextStatus, $linkedType, $decision) {
-            $changed = $record->newQuery()
-                ->whereKey($record->getKey())
-                ->where('status', self::PENDING_STATUS)
-                ->update(['status' => $nextStatus]);
+        $record->update(['status' => $newStatus]);
 
-            if ($changed) {
-                // The files attached to the request get the same decision.
-                Document::where('linked_type', $linkedType)
-                    ->where('linked_id', $record->id)
-                    ->update(['status' => $decision]);
-            }
+        $remarks = trim($data['remarks'] ?? '');
+        AuditLog::record(
+            $user->name ?? 'System',
+            "Marked {$id} as {$data['status']}" . ($remarks !== '' ? " - {$remarks}" : ''),
+            $id
+        );
 
-            return $changed;
-        });
-
-        if (! $changed) {
-            $record->refresh();
-
-            return response()->json([
-                'message' => "{$id} was already processed (current status: {$record->status}). Please refresh the list.",
-            ], 409);
+        if ($record->student_id) {
+            Notification::notifyStudent($record->student_id, "{$id} update", "Status changed to {$newStatus}.", $id);
+        } elseif ($record->personnel_id) {
+            Notification::notifyPersonnel($record->personnel_id, "{$id} update", "Status changed to {$newStatus}.", $id);
         }
 
-        $remarks = trim((string) ($data['remarks'] ?? ''));
-        $action = "Marked {$id} as {$decision}" . ($remarks !== '' ? ' - ' . Str::limit($remarks, 120) : '');
-        AuditLog::record($request->user()?->name ?? 'System', $action, $id);
-
-        return response()->json(['message' => 'Updated', 'id' => $id, 'status' => $nextStatus]);
+        return response()->json(['message' => 'Updated']);
     }
 
-    /**
-     * Turns label => value pairs (plus the JSON "details" column) into a list the
-     * React modal can print without knowing what each field means.
-     */
-    private function fields(array $base, ?array $extra = null): array
+    // ---------------------------------------------------------------- helpers
+
+    /** Someone else may already have handled it while this window was open. */
+    private function ensureStillPending($record): void
     {
-        foreach ($extra ?? [] as $key => $value) {
-            $base[Str::headline((string) $key)] = $value;
-        }
-
-        $rows = [];
-        foreach ($base as $label => $value) {
-            if ($value === null || $value === '') {
-                continue;
-            }
-            $rows[] = [
-                'label' => $label,
-                'value' => is_scalar($value) ? (string) $value : json_encode($value),
-            ];
-        }
-
-        return $rows;
+        abort_unless(
+            $record->status === 'Submitted',
+            422,
+            "{$record->code} was already handled by someone else."
+        );
     }
 
-    private function documentsFor(string $linkedType, int $linkedId): array
+    private function documents($record): array
     {
-        return Document::where('linked_type', $linkedType)
-            ->where('linked_id', $linkedId)
-            ->orderBy('id')
-            ->get()
-            ->map(fn (Document $d) => [
-                'id' => $d->code,
-                'name' => $d->name,
-                'size' => $this->humanSize((int) $d->size_bytes),
-                'status' => $d->status,
-            ])
-            ->all();
+        return $record->documents()->orderBy('id')->get()->map(fn ($d) => [
+            'id' => $d->code,
+            'name' => $d->name,
+            'size' => $this->humanSize((int) $d->size_bytes),
+            'status' => $d->status,
+        ])->values()->all();
+    }
+
+    private function incidentFields(IncidentReport $r): array
+    {
+        return $this->fields([
+            'Incident Type' => $r->type,
+            'Location' => $r->location,
+            'Date of Incident' => $r->incident_date?->format('M d, Y g:i A'),
+            'Priority' => $r->priority,
+            'People Involved' => $r->people_involved,
+            'Description' => $r->description,
+        ]);
+    }
+
+    private function financialFields(FinancialRequest $r): array
+    {
+        return $this->fields([
+            'Type of Assistance' => $r->type,
+            'Amount Requested' => '₱' . number_format((float) $r->amount_requested, 2),
+            'Program' => $r->program,
+            'Department' => $r->department,
+            'Year Level' => $r->year_level,
+            'Block / Section' => $r->block_section,
+            'Requester' => $r->requester_name,
+            'Relationship' => $r->relationship,
+            'Contact' => $r->contact_info,
+            'Reason' => $r->reason,
+        ]);
+    }
+
+    /** Label => value map into the [{label, value}] list the admin panel expects. */
+    private function fields(array $map): array
+    {
+        $out = [];
+        foreach ($map as $label => $value) {
+            $value = trim((string) ($value ?? ''));
+            $out[] = ['label' => $label, 'value' => $value === '' ? '—' : $value];
+        }
+        return $out;
     }
 
     private function humanSize(int $bytes): string
     {
         if ($bytes <= 0) return '0 KB';
-        if ($bytes < 1024 * 1024) return round($bytes / 1024) . ' KB';
+        if ($bytes < 1024 * 1024) return round($bytes / 1024, 0) . ' KB';
         return round($bytes / (1024 * 1024), 1) . ' MB';
     }
 }

@@ -12,6 +12,11 @@ class Message extends Model
         'unread' => 'boolean',
     ];
 
+    public function getRouteKeyName(): string
+    {
+        return 'code';
+    }
+
     public function replies()
     {
         return $this->hasMany(MessageReply::class)->orderBy('created_at');

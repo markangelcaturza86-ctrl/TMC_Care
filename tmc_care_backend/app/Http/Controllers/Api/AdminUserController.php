@@ -12,6 +12,8 @@ use Illuminate\Support\Facades\Hash;
 
 class AdminUserController extends Controller
 {
+    private const SUPER_ADMIN = 'Super Administrator';
+
     public function index(Request $request)
     {
         $q = User::with(['role', 'department']);
@@ -33,6 +35,12 @@ class AdminUserController extends Controller
             'department' => ['nullable', 'string'],
             'password' => ['required', 'string', 'min:6'],
         ]);
+
+        abort_if(
+            $data['role'] === self::SUPER_ADMIN,
+            422,
+            'There can only be one Super Administrator, and it already exists.'
+        );
 
         $role = Role::firstOrCreate(['name' => $data['role']]);
         $department = $data['department'] ? Department::firstOrCreate(['name' => $data['department']]) : null;
@@ -63,6 +71,27 @@ class AdminUserController extends Controller
         'password' => ['sometimes', 'nullable', 'string', 'min:6'],
     ]);
 
+    $isSuper = $admin_user->isSuperAdmin();
+
+    // Exactly one Super Administrator: nobody can be promoted to it, and it cannot be demoted or switched off.
+    if (isset($data['role'])) {
+        abort_if(
+            $data['role'] === self::SUPER_ADMIN && ! $isSuper,
+            422,
+            'There can only be one Super Administrator, and it already exists.'
+        );
+        abort_if(
+            $isSuper && $data['role'] !== self::SUPER_ADMIN,
+            422,
+            'The role of the Super Administrator cannot be changed.'
+        );
+    }
+    abort_if(
+        $isSuper && ($data['status'] ?? 'Active') === 'Inactive',
+        422,
+        'The Super Administrator account cannot be deactivated.'
+    );
+
     if (isset($data['role'])) {
         $data['role_id'] = Role::firstOrCreate(['name' => $data['role']])->id;
         unset($data['role']);
@@ -87,6 +116,9 @@ class AdminUserController extends Controller
 
     public function destroy(Request $request, User $admin_user)
     {
+        abort_if($admin_user->isSuperAdmin(), 422, 'The Super Administrator account cannot be removed.');
+        abort_if($admin_user->id === $request->user()?->id, 422, 'You cannot remove the account you are signed in with.');
+
         AuditLog::record($request->user()?->name ?? 'System', "Removed admin account for {$admin_user->name}", 'ADM-' . str_pad((string) $admin_user->id, 3, '0', STR_PAD_LEFT));
         $admin_user->delete();
         return response()->json(['message' => 'Deleted']);

@@ -2,7 +2,7 @@ import { useState } from 'react';
 import Sidebar from './Sidebar';
 import Topbar from './Topbar';
 
-export default function Layout({ route, navigate, onLogout, children }) {
+export default function Layout({ route, navigate, onLogout, user, children }) {
   const [mobileOpen, setMobileOpen] = useState(false);
 
   return (
@@ -13,6 +13,7 @@ export default function Layout({ route, navigate, onLogout, children }) {
         mobileOpen={mobileOpen}
         onCloseMobile={() => setMobileOpen(false)}
         onLogout={onLogout}
+        user={user}
       />
       <div className="app-main">
         <Topbar route={route} navigate={navigate} onMenuClick={() => setMobileOpen(true)} onLogout={onLogout} />

@@ -1,15 +1,13 @@
 import { useState, useEffect } from 'react';
 import { Eye, Check, X, Banknote } from 'lucide-react';
+import DonationDrivePanel from '../components/DonationDrivePanel';
+import { peso } from '../utils/money';
 import PageHeader from '../components/PageHeader';
 import DataTable from '../components/DataTable';
 import StatusBadge from '../components/StatusBadge';
 import Modal from '../components/Modal';
 import { api } from '../api/client';
 import { useToast } from '../components/Toast';
-
-function peso(n) {
-  return n == null ? '—' : `₱${n.toLocaleString()}`;
-}
 
 export default function RequestsFinancial() {
   const [requests, setRequests] = useState([]);
@@ -38,24 +36,16 @@ export default function RequestsFinancial() {
     }
   };
 
-  const handleApprove = async (r) => {
-    try {
-      await updateStatus(r.id, 'Approved', r.amountRequested);
-      showToast(`${r.id} approved for ${peso(r.amountRequested)}.`, 'success');
-    } catch { /* already toasted in updateStatus */ }
+  // Called by the donation drive panel after approving / recording / releasing.
+  const applyUpdated = (updated) => {
+    setRequests((rs) => rs.map((r) => (r.id === updated.id ? updated : r)));
+    setSelected((cur) => (cur && cur.id === updated.id ? updated : cur));
   };
 
   const handleDecline = async (r) => {
     try {
       await updateStatus(r.id, 'Declined');
       showToast(`${r.id} was declined.`, 'error');
-    } catch { /* already toasted in updateStatus */ }
-  };
-
-  const handleRelease = async (r) => {
-    try {
-      await updateStatus(r.id, 'Assistance Released');
-      showToast(`Assistance released for ${r.id}.`, 'success');
     } catch { /* already toasted in updateStatus */ }
   };
 
@@ -72,12 +62,12 @@ export default function RequestsFinancial() {
           <button className="icon-btn" onClick={() => setSelected(r)} aria-label="View"><Eye size={17} /></button>
           {(r.status === 'Submitted' || r.status === 'Under Verification') && (
             <>
-              <button className="icon-btn icon-btn--success" onClick={() => handleApprove(r)} aria-label="Approve"><Check size={17} /></button>
+              <button className="icon-btn icon-btn--success" onClick={() => setSelected(r)} aria-label="Review and approve"><Check size={17} /></button>
               <button className="icon-btn icon-btn--danger" onClick={() => handleDecline(r)} aria-label="Decline"><X size={17} /></button>
             </>
           )}
           {r.status === 'Approved' && (
-            <button className="icon-btn icon-btn--info" onClick={() => handleRelease(r)} aria-label="Release funds"><Banknote size={17} /></button>
+            <button className="icon-btn icon-btn--info" onClick={() => setSelected(r)} aria-label="Open donation drive"><Banknote size={17} /></button>
           )}
         </div>
       ),
@@ -88,7 +78,7 @@ export default function RequestsFinancial() {
     <div className="page-stack">
       <PageHeader
         title="Financial Assistance Requests"
-        subtitle="Review, approve, decline, or release student financial assistance."
+        subtitle="Approve requests to open a school donation drive, record the donations collected, then release them."
       />
 
       <div className="panel">
@@ -112,12 +102,9 @@ export default function RequestsFinancial() {
         open={!!selected}
         onClose={() => setSelected(null)}
         title={selected?.id}
-        width={600}
+        width={680}
         footer={selected && (selected.status === 'Submitted' || selected.status === 'Under Verification') && (
-          <>
-            <button className="btn btn--outline" onClick={() => handleDecline(selected)}>Decline</button>
-            <button className="btn btn--primary" onClick={() => handleApprove(selected)}>Approve Request</button>
-          </>
+          <button className="btn btn--outline" onClick={() => handleDecline(selected)}>Decline</button>
         )}
       >
         {selected && (
@@ -128,6 +115,9 @@ export default function RequestsFinancial() {
             <div><span>Amount Requested</span><b>{peso(selected.amountRequested)}</b></div>
             <div><span>Status</span><StatusBadge status={selected.status} /></div>
             <div><span>Date Submitted</span><b>{selected.dateSubmitted}</b></div>
+            <div><span>Requester</span><b>{selected.requesterName || '—'}</b></div>
+            <div><span>Relationship</span><b>{selected.relationship || '—'}</b></div>
+            <div className="detail-full"><span>Contact</span><b>{selected.contactInfo || '—'}</b></div>
             <div className="detail-full"><span>Reason</span><p>{selected.reason || '—'}</p></div>
             <div className="detail-full">
               <span>Attached Documents</span>
@@ -138,6 +128,13 @@ export default function RequestsFinancial() {
               </ul>
             </div>
           </div>
+        )}
+        {selected && (
+          <DonationDrivePanel
+            key={`${selected.id}-${selected.status}`}
+            request={selected}
+            onChange={applyUpdated}
+          />
         )}
       </Modal>
     </div>

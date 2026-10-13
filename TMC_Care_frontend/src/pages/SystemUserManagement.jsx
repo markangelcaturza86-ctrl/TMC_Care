@@ -15,6 +15,8 @@ const ID_PATTERN = /^\d{2}-\d{6}$/;
 const STUDENT_ROLE = 'Student';
 const TEACHING_ROLE = 'Teaching Staff';
 const NONTEACHING_ROLE = 'Non-teaching Staff';
+// There is exactly one Super Administrator; it cannot be created again, edited into another role or removed.
+const SUPER_ADMIN_ROLE = 'Super Administrator';
 const STAFF_TYPE_BY_ROLE = { [TEACHING_ROLE]: 'Teaching', [NONTEACHING_ROLE]: 'Non-teaching' };
 
 const kindOfRole = (role) => {
@@ -34,7 +36,13 @@ const makeEmptyForm = (role, departments) => ({
   username: '', password: '',
 });
 
-export default function SystemUserManagement() {
+/**
+ * mode="users"  -> students and school personnel (the people who use the mobile app)
+ * mode="admins" -> admin accounts (Super Administrator, Guidance Counselor, Treasurers...)
+ */
+export default function SystemUserManagement({ mode = 'users' }) {
+  const isAdminMode = mode === 'admins';
+
   const [students, setStudents] = useState([]);
   const [personnel, setPersonnel] = useState([]);
   const [adminUsers, setAdminUsers] = useState([]);
@@ -72,15 +80,18 @@ export default function SystemUserManagement() {
   }, []);
 
   // Order in which roles are listed: admin roles first, then staff, then students.
-  const adminRoleNames = useMemo(() => roles.filter((r) => r.name !== STUDENT_ROLE).map((r) => r.name), [roles]);
+  const adminRoleNames = useMemo(
+    () => roles.filter((r) => ![STUDENT_ROLE, TEACHING_ROLE, NONTEACHING_ROLE].includes(r.name)).map((r) => r.name),
+    [roles]
+  );
   const roleOrder = useMemo(
-    () => [...adminRoleNames, TEACHING_ROLE, NONTEACHING_ROLE, STUDENT_ROLE],
-    [adminRoleNames]
+    () => (isAdminMode ? adminRoleNames : [TEACHING_ROLE, NONTEACHING_ROLE, STUDENT_ROLE]),
+    [isAdminMode, adminRoleNames]
   );
 
   // Merge the three sources into one list of rows, then sort by role, then by name.
   const rows = useMemo(() => {
-    const all = [
+    const all = isAdminMode ? [] : [
       ...students.map((s) => ({
         key: `Student:${s.id}`, kind: 'Student', id: s.id, role: STUDENT_ROLE,
         name: s.name, email: s.email || '', username: s.username,
@@ -92,18 +103,20 @@ export default function SystemUserManagement() {
         name: p.name, email: p.email || '', username: p.username,
         deptOrProgram: p.department || '—', status: p.status, raw: p,
       })),
-      ...adminUsers.map((u) => ({
+    ];
+    if (isAdminMode) {
+      all.push(...adminUsers.map((u) => ({
         key: `Admin:${u.id}`, kind: 'Admin', id: u.id, role: u.role || 'No role',
         name: u.name, email: u.email || '', username: '',
         deptOrProgram: u.department || '—', status: u.status, raw: u,
-      })),
-    ];
+      })));
+    }
     const rank = (role) => {
       const i = roleOrder.indexOf(role);
       return i === -1 ? 999 : i;
     };
     return all.sort((a, b) => rank(a.role) - rank(b.role) || a.name.localeCompare(b.name));
-  }, [students, personnel, adminUsers, roleOrder]);
+  }, [students, personnel, adminUsers, roleOrder, isAdminMode]);
 
   const columns = [
     { key: 'name', header: 'Name' },
@@ -118,10 +131,14 @@ export default function SystemUserManagement() {
           <button className="icon-btn" onClick={() => openProfile(r)} aria-label="View profile"><Eye size={17} /></button>
           <button className="icon-btn" onClick={() => openEdit(r)} aria-label="Edit"><Pencil size={16} /></button>
         
-            <button className="icon-btn" onClick={() => openResetPassword(r)} aria-label="Reset app password"><KeyRound size={16} /></button>
+            {r.kind !== 'Admin' && (
+              <button className="icon-btn" onClick={() => openResetPassword(r)} aria-label="Reset app password"><KeyRound size={16} /></button>
+            )}
           
           
-            <button className="icon-btn icon-btn--danger" onClick={() => removeAdmin(r)} aria-label="Remove"><Trash2 size={16} /></button>
+            {r.kind === 'Admin' && r.role !== SUPER_ADMIN_ROLE && (
+              <button className="icon-btn icon-btn--danger" onClick={() => removeAdmin(r)} aria-label="Remove"><Trash2 size={16} /></button>
+            )}
           
         </div>
       ),
@@ -143,7 +160,7 @@ export default function SystemUserManagement() {
 
   /* ---------- Add ---------- */
   const openCreate = () => {
-    setForm(makeEmptyForm(STUDENT_ROLE, departments));
+    setForm(makeEmptyForm(isAdminMode ? (adminRoleNames.find((r) => r !== SUPER_ADMIN_ROLE) ?? 'Treasurer') : STUDENT_ROLE, departments));
     setCreating(true);
   };
 
@@ -336,9 +353,11 @@ export default function SystemUserManagement() {
   return (
     <div className="page-stack">
       <PageHeader
-        title="Users"
-        subtitle="Students, personnel, and admin accounts in one list, sorted by role."
-        actions={<button className="btn btn--primary" onClick={openCreate}><UserPlus size={16} /> Add User</button>}
+        title={isAdminMode ? 'Admin Accounts' : 'Users'}
+        subtitle={isAdminMode
+          ? 'Accounts that sign in to this admin panel: Super Administrator, Guidance Counselor, and the treasurers.'
+          : 'Students and school personnel who use the mobile app, sorted by role.'}
+        actions={<button className="btn btn--primary" onClick={openCreate}><UserPlus size={16} /> {isAdminMode ? 'Add Admin Account' : 'Add User'}</button>}
       />
 
       <div className="panel">
@@ -418,12 +437,12 @@ export default function SystemUserManagement() {
       </Modal>
 
       {/* ---------- Add User ---------- */}
-      <Modal open={creating} onClose={() => setCreating(false)} title="Add User">
+      <Modal open={creating} onClose={() => setCreating(false)} title={isAdminMode ? 'Add Admin Account' : 'Add User'}>
         {form && (
           <form className="modal-form" onSubmit={submitCreate}>
             <label className="field"><span>Role</span>
               <select value={form.role} onChange={(e) => setForm(makeEmptyForm(e.target.value, departments))}>
-                {roleOrder.map((r) => <option key={r}>{r}</option>)}
+                {roleOrder.filter((r) => r !== SUPER_ADMIN_ROLE).map((r) => <option key={r}>{r}</option>)}
               </select>
             </label>
 
@@ -582,8 +601,9 @@ export default function SystemUserManagement() {
             {editing.kind === 'Admin' && (
               <div className="form-row-2">
                 <label className="field"><span>Role</span>
-                  <select value={editing.role} onChange={setE('role')}>
-                    {adminRoleNames.map((r) => <option key={r}>{r}</option>)}
+                  <select value={editing.role} onChange={setE('role')} disabled={editing.role === SUPER_ADMIN_ROLE}>
+                    {(editing.role === SUPER_ADMIN_ROLE ? [SUPER_ADMIN_ROLE] : adminRoleNames.filter((r) => r !== SUPER_ADMIN_ROLE))
+                      .map((r) => <option key={r}>{r}</option>)}
                   </select>
                 </label>
                 <label className="field"><span>Department</span>

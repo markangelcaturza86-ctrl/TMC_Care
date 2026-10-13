@@ -88,7 +88,10 @@ export default function VerificationsPending() {
     { key: 'dateSubmitted', header: 'Date Submitted' },
     {
       key: 'documents', header: 'Documents',
-      render: (r) => `${r.documents.length} ${r.documents.length === 1 ? 'file' : 'files'}`,
+      render: (r) => {
+        const n = r.documents?.length ?? 0;
+        return `${n} ${n === 1 ? 'file' : 'files'}`;
+      },
     },
     { key: 'status', header: 'Status', render: (r) => <StatusBadge status={r.status} /> },
     {
@@ -139,23 +142,24 @@ export default function VerificationsPending() {
             <div><span>Date Submitted</span><b>{selected.dateSubmitted}</b></div>
             <div><span>Status</span><StatusBadge status={selected.status} /></div>
 
-            {selected.fields.map((f) => {
-              const long = f.value.length > 40 || f.value.includes('\n');
+            {(selected.fields ?? []).map((f) => {
+              const value = String(f.value ?? '—');
+              const long = value.length > 40 || value.includes('\n');
               return (
                 <div key={f.label} className={long ? 'detail-full' : undefined}>
                   <span>{f.label}</span>
-                  {long ? <p style={{ whiteSpace: 'pre-line' }}>{f.value}</p> : <b>{f.value}</b>}
+                  {long ? <p style={{ whiteSpace: 'pre-line' }}>{value}</p> : <b>{value}</b>}
                 </div>
               );
             })}
 
             <div className="detail-full">
-              <span>Documents to Review ({selected.documents.length})</span>
-              {selected.documents.length === 0 ? (
+              <span>Documents to Review ({(selected.documents ?? []).length})</span>
+              {(selected.documents ?? []).length === 0 ? (
                 <p>No documents were attached to this request.</p>
               ) : (
                 <ul className="doc-list doc-list--files">
-                  {selected.documents.map((d) => (
+                  {(selected.documents ?? []).map((d) => (
                     <li key={d.id} style={{ justifyContent: 'space-between' }}>
                       <button type="button" className="link-btn" onClick={() => openDocument(d)} title="Open this file">
                         <FileText size={15} style={{ verticalAlign: 'text-bottom', marginRight: 6 }} />

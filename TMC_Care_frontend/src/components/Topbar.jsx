@@ -7,14 +7,40 @@ export default function Topbar({ route, navigate, onMenuClick, onLogout }) {
   const [notifOpen, setNotifOpen] = useState(false);
   const [userOpen, setUserOpen] = useState(false);
   const [currentUser, setCurrentUser] = useState(null);
-  const [recentActivities, setRecentActivities] = useState([]);
+  const [notifications, setNotifications] = useState([]);
+  const [seenAt, setSeenAt] = useState(() => Number(localStorage.getItem('adminNotifSeenAt') || 0));
   const notifRef = useRef(null);
   const userRef = useRef(null);
 
   useEffect(() => {
     api.get('/me').then(setCurrentUser).catch(() => {});
-    api.get('/audit-logs').then(setRecentActivities).catch(() => {});
   }, []);
+
+  // New incident reports / requests / replies from the mobile app.
+  // Refreshed every minute and each time the bell is opened.
+  const loadNotifications = () => {
+    api.get('/notifications').then(setNotifications).catch(() => {});
+  };
+
+  useEffect(() => {
+    loadNotifications();
+    const timer = setInterval(loadNotifications, 60000);
+    return () => clearInterval(timer);
+  }, []);
+
+  const isUnread = (n) => new Date(n.createdAt).getTime() > seenAt;
+  const unreadCount = notifications.filter(isUnread).length;
+
+  const markAllRead = () => {
+    const now = Date.now();
+    localStorage.setItem('adminNotifSeenAt', String(now));
+    setSeenAt(now);
+  };
+
+  const openNotification = (n) => {
+    setNotifOpen(false);
+    if (n.link) navigate(n.link);
+  };
 
   useEffect(() => {
     function onClickOutside(e) {
@@ -40,25 +66,44 @@ export default function Topbar({ route, navigate, onMenuClick, onLogout }) {
 
       <div className="topbar-right">
         <div className="topbar-item" ref={notifRef}>
-          <button className="icon-btn notif-btn" onClick={() => setNotifOpen((o) => !o)} aria-label="Notifications">
+          <button
+            className="icon-btn notif-btn"
+            onClick={() => {
+              if (!notifOpen) loadNotifications();
+              setNotifOpen((o) => !o);
+            }}
+            aria-label="Notifications"
+          >
             <Bell size={19} />
-            {recentActivities.length > 0 && <span className="notif-dot">{recentActivities.length}</span>}
+            {unreadCount > 0 && <span className="notif-dot">{unreadCount > 99 ? '99+' : unreadCount}</span>}
           </button>
           {notifOpen && (
-            <div className="dropdown dropdown--wide">
-              <p className="dropdown-title">Notifications</p>
-              {recentActivities.length === 0 ? (
-                <p className="dropdown-row-sub" style={{ padding: '8px 4px' }}>No recent activity.</p>
+            <div className="dropdown dropdown--wide notif-dropdown">
+              <div className="notif-head">
+                <p className="dropdown-title" style={{ margin: 0 }}>Notifications</p>
+                {unreadCount > 0 && (
+                  <button type="button" className="link-btn" onClick={markAllRead}>Mark all as read</button>
+                )}
+              </div>
+              {notifications.length === 0 ? (
+                <p className="dropdown-row-sub" style={{ padding: '8px 4px' }}>No notifications yet.</p>
               ) : (
-                recentActivities.map((a) => (
-                  <div className="dropdown-row" key={a.id}>
-                    <div className={`dot dot--${a.color}`} />
-                    <div>
-                      <p className="dropdown-row-title">{a.title}</p>
-                      <p className="dropdown-row-sub">{a.detail} &middot; {a.time}</p>
-                    </div>
-                  </div>
-                ))
+                <div className="notif-list">
+                  {notifications.map((n) => (
+                    <button
+                      type="button"
+                      className={`dropdown-row notif-row${isUnread(n) ? ' notif-row--unread' : ''}`}
+                      key={n.id}
+                      onClick={() => openNotification(n)}
+                    >
+                      <div className={`dot dot--${n.color}`} />
+                      <div>
+                        <p className="dropdown-row-title">{n.title}</p>
+                        <p className="dropdown-row-sub">{n.detail} &middot; {n.time}</p>
+                      </div>
+                    </button>
+                  ))}
+                </div>
               )}
             </div>
           )}

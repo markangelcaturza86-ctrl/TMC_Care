@@ -23,7 +23,7 @@ class AnnouncementController extends Controller
             'audience' => ['sometimes', 'string'],
         ]);
 
-        $seq = Announcement::count() + 15;
+        $seq = (Announcement::max('id') ?? 0) + 1;
         $a = Announcement::create([
             'code' => 'AN-' . str_pad((string) $seq, 3, '0', STR_PAD_LEFT),
             'title' => $data['title'],

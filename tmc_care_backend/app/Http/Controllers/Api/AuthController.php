@@ -27,6 +27,12 @@ class AuthController extends Controller
             ]);
         }
 
+        if ($user->status !== 'Active') {
+            throw ValidationException::withMessages([
+                'email' => ['This account is inactive. Please contact the administrator.'],
+            ]);
+        }
+
         $user->forceFill(['last_active_at' => now()])->save();
 
         $token = $user->createToken('tmc-care-admin')->plainTextToken;
@@ -94,6 +100,9 @@ class AuthController extends Controller
             'role' => $user->role?->name ?? 'Staff',
             'department' => $user->department?->name,
             'avatarColor' => $user->avatar_color,
+            'permissions' => $user->role?->permissions ?? [],
+            // Which sections of the admin panel this account may open.
+            'access' => $user->accessMap(),
         ];
     }
 }

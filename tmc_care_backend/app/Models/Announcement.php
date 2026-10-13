@@ -11,4 +11,9 @@ class Announcement extends Model
     protected $casts = [
         'pinned' => 'boolean',
     ];
+
+    public function getRouteKeyName(): string
+    {
+        return 'code';
+    }
 }

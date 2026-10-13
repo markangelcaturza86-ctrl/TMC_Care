@@ -47,4 +47,73 @@ class User extends Authenticatable
     {
         return $this->belongsTo(Department::class);
     }
+
+    // ---------------------------------------------------------------------
+    // Role based access (Guidance Counselor, Treasurer, Super Administrator…)
+    // ---------------------------------------------------------------------
+
+    public function isSuperAdmin(): bool
+    {
+        $this->loadMissing('role');
+
+        return $this->role?->name === 'Super Administrator';
+    }
+
+    /** True when the Super Administrator, or the role holds ANY of the given permissions. */
+    public function hasAnyPermission(array $permissions): bool
+    {
+        if ($this->isSuperAdmin()) {
+            return true;
+        }
+
+        $this->loadMissing('role');
+
+        return count(array_intersect($permissions, $this->role?->permissions ?? [])) > 0;
+    }
+
+    /** A treasurer for one department (CCS, CCJE, COAD, CAS, COED). */
+    public function isDepartmentTreasurer(): bool
+    {
+        $this->loadMissing('role');
+
+        return $this->role?->name === 'Department Treasurer' && $this->department_id !== null;
+    }
+
+    /** Guidance Counselor (and legacy Case Officer / Front Desk roles). */
+    public function canManageIncidents(): bool
+    {
+        return $this->hasAnyPermission([
+            'Manage Incident Reports', 'Manage Reports', 'Manage Requests', 'Create Reports',
+        ]);
+    }
+
+    /** Treasurer (and legacy Case Officer / Finance Reviewer / Front Desk roles). */
+    public function canManageFinancial(): bool
+    {
+        return $this->hasAnyPermission([
+            'Manage Financial Requests', 'Manage Requests', 'Manage Requests (Financial)', 'Create Requests',
+        ]);
+    }
+
+    /**
+     * Single source of truth for what this account may open. It is used by the
+     * `access:` route middleware AND sent to the admin panel to build the menu.
+     */
+    public function accessMap(): array
+    {
+        $incidents = $this->canManageIncidents();
+        $financial = $this->canManageFinancial();
+
+        return [
+            'incidents' => $incidents,
+            'financial' => $financial,
+            'records' => $incidents || $financial,
+            'users' => $this->hasAnyPermission(['Manage Users']),
+            'system' => $this->hasAnyPermission(['Manage System Settings']),
+            'audit' => $this->hasAnyPermission(['View Audit Logs', 'Manage System Settings']),
+            'communications' => $this->hasAnyPermission(['Send Communications']),
+            // Department treasurers: collect donations and hand them to the TMC Treasurer.
+            'collections' => $this->isDepartmentTreasurer(),
+        ];
+    }
 }
